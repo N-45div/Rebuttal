@@ -14,7 +14,7 @@ export default function Home() {
   return (
     <>
       <header className="hero">
-        <div className="eyebrow">Multi-App AI Agent Hackathon · 13 September 2026 · GPT-6 Astra</div>
+        <div className="eyebrow">Multi-App AI Agent Hackathon · GPT-6 Astra</div>
         <h1>Stripe files what it has.<br />Rebuttal goes and <em>finds the rest.</em></h1>
         <p className="lede">
           A chargeback is a one-shot, irreversible filing against a deadline. Rebuttal assembles the evidence Stripe cannot see, across the

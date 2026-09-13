@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a href="https://github.com/N-45div/Rebuttal/blob/main/ARCHITECTURE.md">Architecture</a>
             <a href="https://github.com/N-45div/Rebuttal/blob/main/TESTING.md">Testing</a>
             <a href="https://github.com/N-45div/Rebuttal/blob/main/SETUP.md">Setup</a>
-            <span className="src">Multi-App AI Agent Hackathon · 13 Sep 2026 · GPT-6 Astra</span>
+            <span className="src">Multi-App AI Agent Hackathon · GPT-6 Astra</span>
           </footer>
         </div>
       </body>

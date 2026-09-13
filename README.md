@@ -8,7 +8,7 @@ Every chargeback is a one-shot, irreversible filing against a deadline. A financ
 
 **Demo video (2 min):** _link goes here_
 
-Built from scratch on 13 September 2026 for the Multi-App AI Agent Hackathon.
+Built from scratch in one day for the Multi-App AI Agent Hackathon.
 
 **Docs:** [ARCHITECTURE.md](ARCHITECTURE.md) (diagrams, who decides what) · [TESTING.md](TESTING.md) (how we know it works) · [SETUP.md](SETUP.md) (every app, every key)
 

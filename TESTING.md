@@ -90,7 +90,7 @@ after:   required_actions: []                                                   
 
 This is Stripe's rule engine grading the packet, not ours. It also rejected a packet on the night with `device_fingerprint must be either null or >= 20 characters`, which the agent now treats as a HOLD with the error in the trace, never a retry.
 
-### 4. Live runs, 13–14 September 2026
+### 4. Live runs
 
 | Run | What happened | Kept |
 |---|---|---|
