@@ -45,12 +45,12 @@ def run_scenario(s: Scenario, attempts: int) -> dict:
         core = Rebuttal(stripe, gmail, sheets, slack, FakeModel(s.model_misbehave), photon=photon, calle=calle)
         c = asyncio.run(coordinator.run(core, "du_1", fault=s.model_misbehave))
         post = [x for x in c.trace.spans if x.get("name") == "detector.post"]
-        findings = (post[-1].get("findings", []) if post else [])
+        modes = (post[-1].get("findings", []) if post else [])
         class R: pass
         r = R(); r.verdict = c.decision.verdict if c.decision else None; r.outcome = c.outcome; r.blocked = c.gate.blocked
-        r.report = R(); r.report.findings = [type("F", (), {"mode": m})() for m in findings]
+        r.report = R(); r.report.findings = [type("F", (), {"mode": m})() for m in modes]
         ok = (r.verdict is not None and r.verdict.value == s.expect_verdict and r.outcome == s.expect_outcome and r.blocked >= s.expect_blocked_min
-              and all(m in findings for m in s.expect_findings))
+              and all(m in modes for m in s.expect_findings))
         # the twin must show no state change on HOLD / CONCEDE / blocked runs
         submitted = any(e["change"] == "dispute.submitted" for e in stripe.effects)
         if s.name.startswith("photon_text"):
