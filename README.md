@@ -6,7 +6,9 @@ Every chargeback is a one-shot, irreversible filing against a deadline. A financ
 
 **Live:** https://rebuttal-ten.vercel.app (Next.js, Vercel) · API https://rebuttal-api.onrender.com (FastAPI, Render; `/eval` runs the suite on the server)
 
-**Demo video (2 min):** _link goes here_
+**Demo video**
+
+https://github.com/user-attachments/assets/c71a1c87-8b2e-4ef7-a3aa-ccac88c426f9
 
 Built from scratch in one day for the Multi-App AI Agent Hackathon.
 
