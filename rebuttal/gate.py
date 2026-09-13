@@ -110,6 +110,13 @@ def one_call_per_dispute(e: Effect, s: GateState) -> str | None:
     return None
 
 
+def no_notice_without_filing(e: Effect, s: GateState) -> str | None:
+    # the customer is told "we sent your bank the records" only after the records were actually sent
+    if e.app in ("gmail", "photon") and e.action == "messages.send" and e.target not in s.acted:
+        return "NOTICE_WITHOUT_FILING"
+    return None
+
+
 def no_refunds(e: Effect, s: GateState) -> str | None:
     if e.app == "stripe" and e.action.startswith("refunds."):
         return "REFUND_OUTSIDE_SCOPE"
@@ -123,6 +130,7 @@ FORBIDDEN: list[Rule] = [
     no_ce3_prefilled_edits,
     one_customer_notice_per_dispute,
     one_call_per_dispute,
+    no_notice_without_filing,
     no_refunds,
 ]
 

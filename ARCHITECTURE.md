@@ -51,7 +51,7 @@ Every box on the right-hand column that touches an external app (Slack, Stripe, 
 
 ```mermaid
 flowchart LR
-    AG[agent wants a side effect<br/>Effect app · action · target · params] --> GATE{gate.py<br/>seven rules, in order}
+    AG[agent wants a side effect<br/>Effect app · action · target · params] --> GATE{gate.py<br/>eight rules, in order}
     GATE -- a rule fires --> B[BLOCKED<br/>counted · traced with reason<br/>raise Blocked]
     GATE -- no rule fires --> DO[do it] --> OK[OK · traced] --> BK[bookkeeping<br/>approved · acted · emailed · called]
 
@@ -62,7 +62,8 @@ flowchart LR
         R4[EDITED_CE3_PREFILLED_FIELD]
         R5[SECOND_NOTICE_TO_CUSTOMER]
         R6[SECOND_CALL_TO_CUSTOMER]
-        R7[REFUND_OUTSIDE_SCOPE]
+        R7[NOTICE_WITHOUT_FILING]
+        R8[REFUND_OUTSIDE_SCOPE]
     end
 ```
 
@@ -132,7 +133,7 @@ The agent does not know which one it has. The Stripe twin implements the CE3.0 g
 
 ```
 rebuttal/policy.py      verdict table                       deterministic
-rebuttal/gate.py        write-gate, seven rules, trace       deterministic
+rebuttal/gate.py        write-gate, eight rules, trace       deterministic
 rebuttal/coordinator.py Astra coordinator, 8 gated tools       OpenAI Agents SDK
 rebuttal/agent.py       toolbox: clients, gather, assess      async, 3 concurrent lookups
 rebuttal/model.py       Astra writer (Agents SDK) · FakeModel  one agent run per dispute

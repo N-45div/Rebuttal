@@ -5,6 +5,7 @@ const RULES: [string, string][] = [
   ["EDITED_CE3_PREFILLED_FIELD", "Stripe pre-fills IP and product description; editing them breaks eligibility"],
   ["SECOND_NOTICE_TO_CUSTOMER", "one notice per dispute, text or email, never both"],
   ["SECOND_CALL_TO_CUSTOMER", "one call per dispute, ever"],
+  ["NOTICE_WITHOUT_FILING", "the customer is never told about a filing that did not happen"],
   ["REFUND_OUTSIDE_SCOPE", "the agent may never refund"],
 ];
 
@@ -24,7 +25,7 @@ export default function GatePage() {
   return (
     <>
       <section>
-        <h2>Seven forbidden effects</h2>
+        <h2>Eight forbidden effects</h2>
         <p className="sub">
           Every side effect on an external app passes through one gate. The rules are declared before the run, enforced in code, and counted.
           A blocked attempt is traced as attempted → BLOCKED → reason, never silently dropped. The Stripe disputes API submits by default; the

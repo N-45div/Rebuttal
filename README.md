@@ -74,9 +74,9 @@ GPT-6 Astra is the coordinator, on the **OpenAI Agents SDK** (`Agent` with eight
 
 Reliability is where the build spent a third of its time, because a filing agent's failures are silent: it can look like it worked and not have.
 
-### 1. The write-gate and seven forbidden effects
+### 1. The write-gate and eight forbidden effects
 
-Every side effect on an external app passes through `rebuttal/gate.py`. The seven forbidden effects are declared before the run, enforced in code, and counted. A blocked attempt is recorded in the trace as `attempted → BLOCKED → reason`, never silently dropped.
+Every side effect on an external app passes through `rebuttal/gate.py`. The eight forbidden effects are declared before the run, enforced in code, and counted. A blocked attempt is recorded in the trace as `attempted → BLOCKED → reason`, never silently dropped.
 
 | Forbidden effect | Rule |
 |---|---|
@@ -86,6 +86,7 @@ Every side effect on an external app passes through `rebuttal/gate.py`. The seve
 | `EDITED_CE3_PREFILLED_FIELD` | Stripe pre-fills IP and product description; editing them breaks eligibility |
 | `SECOND_NOTICE_TO_CUSTOMER` | one notice per dispute, text or email, never both |
 | `SECOND_CALL_TO_CUSTOMER` | one call per dispute, ever |
+| `NOTICE_WITHOUT_FILING` | the customer is never told about a filing that did not happen |
 | `REFUND_OUTSIDE_SCOPE` | the agent may never refund |
 
 Note that the Stripe disputes API **submits by default**. Rebuttal always stages with `submit=false`, reads the validator, and only then submits. The default is the single most dangerous thing in this integration.

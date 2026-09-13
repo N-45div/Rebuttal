@@ -37,8 +37,14 @@ def test_editing_ce3_prefilled_ip_is_blocked():
         g(submit(**ev), lambda: None)
 
 
-def test_second_email_blocked():
+def test_notice_without_filing_blocked():
     g = mk()
+    with pytest.raises(Blocked, match="NOTICE_WITHOUT_FILING"):
+        g(Effect("photon", "messages.send", "du_1"), lambda: None)
+
+
+def test_second_email_blocked():
+    g = mk(GateState(acted={"du_1"}))
     e = Effect("gmail", "messages.send", "du_1")
     g(e, lambda: None)
     with pytest.raises(Blocked, match="SECOND_NOTICE_TO_CUSTOMER"):
