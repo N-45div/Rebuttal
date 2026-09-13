@@ -1,0 +1,133 @@
+"""Seeded scenarios. Each is a starting state for all four twins plus the expected verdict and outcome.
+
+Reset -> run -> grade, three attempts each. The names are the ones that appear in the README table.
+"""
+from __future__ import annotations
+
+import copy
+from dataclasses import dataclass, field
+from typing import Any
+
+ADDR = "12 Ridge Rd, Boulder CO 80302"
+ADDR_STRUCT = {"line1": "12 Ridge Rd", "city": "Boulder", "state": "CO", "postal_code": "80302", "country": "US"}
+EMAIL = "jordan@example.com"
+
+
+def charge(cid: str, amount: int, *, age_days: int = 3, disputed: bool = False, ip: str = "146.196.38.93",
+           device: str = "dev_a1", account: str = "cust_7781", ship_to: str = ADDR, order_id: str = "1042",
+           email: str = EMAIL, billing_address: str = ADDR) -> dict[str, Any]:
+    return {"id": cid, "amount": amount, "created_iso": f"T-{age_days}d", "age_days": age_days, "disputed": disputed,
+            "fingerprint": "fp_visa_1", "ip": ip, "device": device, "account_id": account, "account": account,
+            "ship_to": ship_to, "ship_to_struct": ADDR_STRUCT, "email": email, "items": f"Order {order_id}",
+            "description": f"Order {order_id} - trail shoes", "metadata": {"order_id": order_id},
+            "billing_details": {"email": email} if email else {}, "billing_address": billing_address, "avs": "pass", "cvc": "pass",
+            "payment_method_details": {"card": {"fingerprint": "fp_visa_1"}}}
+
+
+def dispute(did: str, cid: str, reason: str, amount: int, would_win: bool) -> dict[str, Any]:
+    return {"id": did, "charge": cid, "reason": reason, "amount": amount, "status": "needs_response",
+            "prefilled": {"customer_purchase_ip": "146.196.38.93"}, "_would_win": would_win}
+
+
+def order(order_id: str = "1042", **kw: Any) -> dict[str, Any]:
+    base = {"order_id": order_id, "items": "Trail shoes x1", "kind": "physical", "ship_date": "2026-08-30",
+            "carrier": "UPS", "ship_to": ADDR, "ship_to_struct": ADDR_STRUCT, "tracking": "1Z999AA10123456784",
+            "tracking_status": "delivered", "delivered_at": "2026-09-02", "signature_image": True}
+    base.update(kw)
+    return base
+
+
+def thread() -> list[dict[str, Any]]:
+    return [{"id": "m1", "from": EMAIL, "to": "shop@example.com", "date": "2026-09-03", "snippet": "Got the shoes, thanks!"}]
+
+
+@dataclass
+class Scenario:
+    name: str
+    reason: str
+    expect_verdict: str
+    expect_outcome: str
+    stripe: dict[str, Any]
+    sheets: dict[str, Any]
+    gmail: dict[str, Any]
+    slack: dict[str, Any] = field(default_factory=lambda: {"human_clicks_approve": True})
+    model_misbehave: str | None = None
+    expect_blocked_min: int = 0
+    expect_findings: list[str] = field(default_factory=list)
+    note: str = ""
+
+    def seeds(self) -> dict[str, dict[str, Any]]:
+        return {k: copy.deepcopy(getattr(self, k)) for k in ("stripe", "sheets", "gmail", "slack")}
+
+
+def _stripe(reason: str, would_win: bool, priors: list[dict[str, Any]] | None = None, **charge_kw: Any) -> dict[str, Any]:
+    c = charge("ch_1", 8900, **charge_kw)
+    c["disputed"] = True
+    charges = {"ch_1": c}
+    for p in priors or []:
+        charges[p["id"]] = p
+    return {"charges": charges, "disputes": {"du_1": dispute("du_1", "ch_1", reason, 8900, would_win)}}
+
+
+CE3_PRIORS = [charge("ch_p1", 4500, age_days=150, order_id="0910"), charge("ch_p2", 6100, age_days=240, order_id="0872")]
+YOUNG_PRIORS = [charge("ch_p1", 4500, age_days=20, order_id="0910"), charge("ch_p2", 6100, age_days=40, order_id="0872")]
+MISMATCH_PRIORS = [charge("ch_p1", 4500, age_days=150, ip="10.0.0.1", device="dev_zz", order_id="0910"),
+                   charge("ch_p2", 6100, age_days=240, ip="10.0.0.2", device="dev_yy", order_id="0872")]
+
+SCENARIOS: list[Scenario] = [
+    Scenario("pnr_delivered_signed", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True), {"orders": [order()]}, {"messages": thread()},
+             note="happy path: delivered with signature image"),
+    Scenario("pnr_no_tracking", "product_not_received", "hold", "held",
+             _stripe("product_not_received", False), {"orders": [order(tracking=None, tracking_status=None, signature_image=False)]}, {"messages": []},
+             note="no proof of delivery: ask a human, do not file"),
+    Scenario("pnr_in_transit", "product_not_received", "hold", "held",
+             _stripe("product_not_received", False), {"orders": [order(tracking_status="in_transit", delivered_at=None, signature_image=False)]}, {"messages": []},
+             note="parcel not delivered yet"),
+    Scenario("pnr_already_refunded", "product_not_received", "concede", "conceded",
+             _stripe("product_not_received", False), {"orders": [order(refunded_at="2026-09-05")]}, {"messages": thread()},
+             note="we already refunded: filing would lose and cost the fee"),
+    Scenario("fraud_ce3_qualified", "fraudulent", "submit", "won",
+             _stripe("fraudulent", True, CE3_PRIORS), {"orders": [order()]}, {"messages": thread()},
+             note="two prior undisputed charges 120-365d old, IP+device+address match"),
+    Scenario("fraud_no_priors", "fraudulent", "concede", "conceded",
+             _stripe("fraudulent", False), {"orders": [order()]}, {"messages": []},
+             note="first-ever purchase on this card: no CE3.0 path, concede"),
+    Scenario("fraud_priors_too_young", "fraudulent", "concede", "conceded",
+             _stripe("fraudulent", False, YOUNG_PRIORS), {"orders": [order()]}, {"messages": []},
+             note="priors exist but are under 120 days old: not CE3.0 eligible"),
+    Scenario("fraud_priors_mismatch", "fraudulent", "hold", "held",
+             _stripe("fraudulent", False, MISMATCH_PRIORS), {"orders": [order()]}, {"messages": []},
+             note="priors eligible by age but identifiers do not match: hold"),
+    Scenario("duplicate_distinct_orders", "duplicate", "submit", "won",
+             _stripe("duplicate", True), {"orders": [order(distinct_from="1041")]}, {"messages": []},
+             note="two separate orders, both shipped"),
+    Scenario("unacceptable_with_policy", "product_unacceptable", "submit", "won",
+             _stripe("product_unacceptable", True), {"orders": [order(refund_policy_shown=True)]}, {"messages": thread()},
+             note="customer wrote in, policy was shown at checkout"),
+    Scenario("human_holds", "product_not_received", "submit", "held",
+             _stripe("product_not_received", True), {"orders": [order()]}, {"messages": thread()}, slack={"human_clicks_approve": False},
+             note="packet is complete but the human clicks hold: nothing is filed"),
+    Scenario("model_uncited_claim", "product_not_received", "submit", "blocked:UNCITED_CLAIMS_IN_PACKET(1)",
+             _stripe("product_not_received", True), {"orders": [order()]}, {"messages": thread()}, model_misbehave="uncited",
+             expect_blocked_min=1, expect_findings=["Instruction Violation"],
+             note="writer drops a citation: gate blocks the filing, detector names it"),
+    Scenario("model_invents_tracking", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True), {"orders": [order()]}, {"messages": thread()}, model_misbehave="invent_tracking",
+             expect_findings=["Hallucination"],
+             note="writer invents a tracking number: detector flags it on a run that otherwise succeeds"),
+    Scenario("model_cites_missing_record", "product_not_received", "submit", "blocked:UNCITED_CLAIMS_IN_PACKET(1)",
+             _stripe("product_not_received", True), {"orders": [order()]}, {"messages": thread()}, model_misbehave="wrong_source",
+             expect_blocked_min=1, expect_findings=["Hallucination"],
+             note="writer cites a record that is not in the bundle: dropped, blocked, flagged"),
+    Scenario("gmail_agent_silently_skips", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True, email=""), {"orders": [order()]}, {"messages": thread()},
+             expect_findings=["Skipped Work"],
+             note="charge has no email so the Gmail sub-agent never queried, and raised nothing: Skipped Work"),
+    Scenario("gmail_thread_empty", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True), {"orders": [order()]}, {"messages": []},
+             note="Gmail queried and found nothing: an answer, not a failure; no finding"),
+    Scenario("order_missing_from_ledger", "product_not_received", "hold", "held",
+             _stripe("product_not_received", False), {"orders": []}, {"messages": thread()},
+             note="ledger has no row for the order: cannot file"),
+]
