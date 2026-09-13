@@ -1,0 +1,20 @@
+[project]
+name = "rebuttal"
+version = "0.1.0"
+description = "Chargeback representment agent that qualifies disputes under Visa Compelling Evidence 3.0 across Stripe, Gmail, Sheets and Slack"
+requires-python = ">=3.10"
+dependencies = [
+  "stripe>=10",
+  "openai>=1.50",
+  "slack-sdk>=3.30",
+  "google-api-python-client>=2.140",
+  "google-auth-oauthlib>=1.2",
+  "pydantic>=2",
+  "python-dotenv>=1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
