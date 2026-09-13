@@ -4,6 +4,8 @@
 
 Every chargeback is a one-shot, irreversible filing against a deadline. A finance-ops person spends 30 to 40 minutes assembling a packet from five systems, and most merchants give up because the order was $60. Rebuttal does that job in about 35 seconds, with a human click in Slack before anything is filed, and it shows its work: every claim carries a citation to a source record, every write passes a gate, and every run leaves a trace.
 
+**Live:** https://rebuttal-ten.vercel.app (Next.js, Vercel) · API https://rebuttal-api.onrender.com (FastAPI, Render; `/eval` runs the suite on the server)
+
 **Demo video (2 min):** _link goes here_
 
 Built from scratch on 13 September 2026 for the Multi-App AI Agent Hackathon.
@@ -199,6 +201,8 @@ rebuttal/demo.py       live seed + run
 scenarios/             22 seeded scenarios
 scripts/verify_ce3.sh  Stripe CLI proof that test mode grades CE3.0
 slackapp/              Slack app manifest
+web/                   Next.js site: overview, run viewer, reliability, gate & policy (Vercel)
+rebuttal/api.py        read-side API for the site (Render)
 tests/                 unit tests for policy and gate
 runs/                  one JSON trace per run
 ```
