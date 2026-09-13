@@ -78,7 +78,9 @@ def run(args) -> None:
     photon = PhotonClient() if os.environ.get("PHOTON_ENABLED", "1") == "1" else None
     calle = CalleClient() if os.environ.get("CALLE_API_KEY") else None
     agent = Rebuttal(st, GmailClient(creds=creds), SheetsClient(creds=creds), SlackClient(), AstraModel(), photon=photon, calle=calle)
-    print("running on", dispute_id, "-> approve in Slack", agent.slack.channel)
+    os.environ.setdefault("REBUTTAL_VERBOSE", "1")
+    print(f"rebuttal · dispute {dispute_id} · approve in Slack {agent.slack.channel}
+", flush=True)
     r = asyncio.run(agent.run(dispute_id, approve=args.auto_approve or None))
     print(f"\nverdict {r.verdict.value} -> {r.outcome} | ce3 {r.ce3_status} | ${r.amount_cents/100:.2f} at stake, ${r.recovered_cents/100:.2f} recovered | {r.blocked} forbidden effects blocked")
     for f in r.report.findings:

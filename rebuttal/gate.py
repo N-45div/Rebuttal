@@ -7,6 +7,7 @@ A blocked attempt is recorded, never silently dropped: the trace shows
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,6 +37,11 @@ class Trace:
     def span(self, kind: str, name: str, **data: Any) -> dict[str, Any]:
         s = {"t": round(time.time() - self.started, 3), "kind": kind, "name": name, **data}
         self.spans.append(s)
+        if os.environ.get("REBUTTAL_VERBOSE") == "1":
+            tail = data.get("result") or data.get("verdict") or ("approved" if data.get("approved") else "") or ""
+            extra = f"  {data['reason']}" if kind == "effect" and data.get("reason") else ""
+            extra = extra or (f"  received={data['received']}" if data.get("received") else "")
+            print(f"  {s['t']:6.1f}s  {kind:<11} {name:<28} {tail}{extra}", flush=True)
         return s
 
     def dump(self, root: Path = Path("runs")) -> Path:
