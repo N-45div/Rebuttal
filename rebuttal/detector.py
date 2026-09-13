@@ -58,7 +58,8 @@ def detect(trace_spans: list[dict[str, Any]], packet: dict[str, Any], bundle: di
     # Hallucination: tracking numbers or amounts in the narrative that appear in no source record.
     facts = " ".join(str(v) for v in bundle.get("facts", {}).values())
     for c in packet.get("claims", []):
-        for tok in c["text"].split():
+        for raw_tok in c["text"].split():
+            tok = raw_tok.strip(".,;:()[]\"'")
             if tok.startswith("1Z") and tok not in facts:
                 r.findings.append(Finding("Hallucination", f"tracking number {tok} not in any source"))
 

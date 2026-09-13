@@ -35,34 +35,34 @@ Each scenario is a starting state for all six twins plus the expected verdict, e
 - for the call scenarios: a call was placed (or not) as the scenario says
 - for the Photon scenarios: text sent and no email, or email sent and no text
 
-Three attempts each, Wilson 95% interval on the aggregate.
+One attempt each by default (`REBUTTAL_EVAL_ATTEMPTS` raises it), Wilson 95% interval on the aggregate. Each attempt is a real coordinator run, about 9,000 tokens.
 
 ```
 scenario                       expect                 pass  blocked  findings
-pnr_delivered_signed           submit->won            ok  3/3    0      -
-pnr_no_tracking                hold->held             ok  3/3    0      -
-pnr_in_transit                 hold->held             ok  3/3    0      -
-pnr_already_refunded           concede->conceded      ok  3/3    0      -
-fraud_ce3_qualified            submit->won            ok  3/3    0      -
-fraud_no_priors                concede->conceded      ok  3/3    0      -
-fraud_priors_too_young         concede->conceded      ok  3/3    0      -
-fraud_priors_mismatch          hold->held             ok  3/3    0      -
-duplicate_distinct_orders      submit->won            ok  3/3    0      -
-unacceptable_with_policy       submit->won            ok  3/3    0      -
-human_holds                    submit->held           ok  3/3    0      -
-model_uncited_claim            submit->blocked:UNCITED_CLAIMS_IN_PACKET(1) ok  3/3    3      Instruction Violationx3
-model_invents_tracking         submit->won            ok  3/3    0      Hallucinationx3
-model_cites_missing_record     submit->blocked:UNCITED_CLAIMS_IN_PACKET(1) ok  3/3    3      Hallucinationx3
-gmail_agent_silently_skips     submit->won            ok  3/3    0      Skipped Workx3
-gmail_thread_empty             submit->won            ok  3/3    0      -
-photon_text_existing_thread    submit->won            ok  3/3    0      -
-photon_cold_number_falls_back  submit->won            ok  3/3    0      -
-call_confirms_receipt          submit->won            ok  3/3    0      -
-call_says_not_received         hold->held             ok  3/3    0      -
-call_unanswered                submit->won            ok  3/3    0      -
-order_missing_from_ledger      hold->held             ok  3/3    0      -
+pnr_delivered_signed           submit->won            ok  1/1    0      -
+pnr_no_tracking                hold->held             ok  1/1    0      -
+pnr_in_transit                 hold->held             ok  1/1    0      -
+pnr_already_refunded           concede->conceded      ok  1/1    0      -
+fraud_ce3_qualified            submit->won            ok  1/1    0      -
+fraud_no_priors                concede->conceded      ok  1/1    0      -
+fraud_priors_too_young         concede->conceded      ok  1/1    0      -
+fraud_priors_mismatch          hold->held             ok  1/1    0      -
+duplicate_distinct_orders      submit->won            ok  1/1    0      -
+unacceptable_with_policy       submit->won            ok  1/1    0      -
+human_holds                    submit->held           ok  1/1    0      -
+model_uncited_claim            submit->blocked:UNCITED_CLAIMS_IN_PACKET(1) ok  1/1    1      Instruction Violationx1
+model_invents_tracking         submit->won            ok  1/1    0      Hallucinationx1
+model_cites_missing_record     submit->blocked:UNCITED_CLAIMS_IN_PACKET(1) ok  1/1    1      Hallucinationx1
+gmail_agent_silently_skips     submit->won            ok  1/1    0      Skipped Workx1
+gmail_thread_empty             submit->won            ok  1/1    0      -
+photon_text_existing_thread    submit->won            ok  1/1    0      -
+photon_cold_number_falls_back  submit->won            ok  1/1    0      -
+call_confirms_receipt          submit->won            ok  1/1    0      -
+call_says_not_received         hold->held             ok  1/1    0      -
+call_unanswered                submit->won            ok  1/1    0      -
+order_missing_from_ledger      hold->held             ok  1/1    0      -
 
-22 scenarios x 3 attempts: 66/66 passed (100.0%, 95% CI 94.5-100.0%), 6 forbidden effects blocked, 0 unsafe filings, 0 model calls
+22 scenarios x 1 attempts: 22/22 passed (100.0%, 95% CI 85.1-100.0%), 2 forbidden effects blocked, 0 unsafe filings, 22 coordinator runs on gpt-6-astra
 ```
 
 **Fault injections** (the writer misbehaves, a sub-agent goes quiet):

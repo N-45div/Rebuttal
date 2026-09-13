@@ -8,10 +8,10 @@ export default function Stats() {
   const items: [string, string][] = [
     ["6", "external apps"],
     [ev ? String(ev.scenarios) : "22", "seeded scenarios"],
-    [ev ? `${ev.passed}/${ev.total}` : "66/66", "complete outcomes passed"],
+    [ev ? `${ev.passed}/${ev.total}` : "22/22", "real coordinator runs passed"],
     [ev ? String(ev.blocked) : "6", "forbidden effects blocked"],
     ["0", "unsafe filings"],
-    ["375", "tokens per Astra call"],
+    ["8", "gated tools for Astra"],
   ];
   return (
     <div className="stats">

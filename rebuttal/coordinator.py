@@ -111,7 +111,7 @@ def propose_packet(ctx: RunContextWrapper[Ctx], claims: list[Claim]) -> str:
     c.gate.state.uncited_claims = c.dropped
     c.trace.span("generation", "coordinator.propose_packet", claims=len(raw), dropped_uncited=c.dropped)
     rep = detect(c.trace.spans, {"claims": raw}, c.bundle.as_dict(), (c.decision.verdict.value if c.decision else ""), stage="pre")
-    c.trace.span("review", "detector.pre", findings=[f.mode for f in rep.findings])
+    c.trace.span("review", "detector.pre", findings=[f.mode for f in rep.findings], details=[f"{f.mode}: {f.detail}" for f in rep.findings])
     return json.dumps({"kept": len(kept), "dropped": c.dropped, "findings": [f.mode for f in rep.findings]})
 
 
@@ -228,6 +228,6 @@ async def run(core: Rebuttal, dispute_id: str, model: str | None = None, fault: 
     trace.span("generation", "coordinator.run", turns=len(result.raw_responses or []), tokens=tokens)
     rep = detect(trace.spans, {"claims": ctx.packet.get("raw_claims", [])}, ctx.bundle.as_dict() if ctx.bundle else {"record_ids": [], "facts": {}},
                  ctx.decision.verdict.value if ctx.decision else "", stage="post")
-    trace.span("review", "detector.post", findings=[f.mode for f in rep.findings])
+    trace.span("review", "detector.post", findings=[f.mode for f in rep.findings], details=[f"{f.mode}: {f.detail}" for f in rep.findings])
     trace.dump()
     return ctx
