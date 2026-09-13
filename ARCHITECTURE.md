@@ -1,6 +1,6 @@
 # Architecture
 
-One orchestrator, six external apps, three verdicts, one gate in front of every write.
+One coordinator (GPT-6 Astra on the OpenAI Agents SDK), eight tools over six external apps, three verdicts, one gate in front of every write.
 
 ## The run
 
@@ -80,7 +80,7 @@ flowchart LR
         HS[harness.py<br/>tighten requirements after a loss]
     end
     subgraph model
-        M[GPT-6 Astra · OpenAI Agents SDK<br/>facts → typed cited claims]
+        M[GPT-6 Astra coordinator · OpenAI Agents SDK<br/>calls the eight tools · writes the claims]
     end
     subgraph counterparty
         CE[Stripe CE3.0 validator<br/>qualified / requires_action]
@@ -133,7 +133,8 @@ The agent does not know which one it has. The Stripe twin implements the CE3.0 g
 ```
 rebuttal/policy.py      verdict table                       deterministic
 rebuttal/gate.py        write-gate, seven rules, trace       deterministic
-rebuttal/agent.py       orchestrator                         async, 3 concurrent sub-agents + conditional call
+rebuttal/coordinator.py Astra coordinator, 8 gated tools       OpenAI Agents SDK
+rebuttal/agent.py       toolbox: clients, gather, assess      async, 3 concurrent lookups
 rebuttal/model.py       Astra writer (Agents SDK) · FakeModel  one agent run per dispute
 rebuttal/detector.py    silent-failure detector              deterministic
 rebuttal/harness.py     tighten-only self-improvement        deterministic

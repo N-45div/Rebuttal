@@ -16,6 +16,19 @@ Built from scratch in one day for the Multi-App AI Agent Hackathon.
 
 ## What it does
 
+The coordinator is **GPT-6 Astra on the OpenAI Agents SDK**. It has eight tools and nothing else. Every tool is a thin wrapper over one of the six apps, and every write inside a tool passes the gate, so the forbidden effects hold no matter what the model decides to call. The verdict is not the model's to make: it asks the policy table through a tool and must follow it.
+
+| Tool | App | What it does |
+|---|---|---|
+| `gather_evidence` | Stripe · Sheets · Gmail | the three lookups, concurrently; returns facts with record ids |
+| `call_customer` | CALL-E | one confirmation call; the structured answer becomes a cited fact |
+| `get_verdict` | policy table | SUBMIT / HOLD / CONCEDE and what is missing |
+| `propose_packet` | — | the model's claims; uncited ones dropped and counted |
+| `request_approval` | Slack | packet with Approve & file / Hold; waits for the human |
+| `file_evidence` | Stripe | stage, read the CE3.0 validator, submit once |
+| `notify_customer` | Photon · Gmail | one notice, text first |
+| `record_outcome` | Sheets · Slack | outcome row and the summary line |
+
 ```
 Stripe dispute webhook
    │
@@ -55,7 +68,7 @@ Stripe dispute webhook
 
 The call is the interesting one. A "product not received" dispute with a delivered scan but no word from the customer is the classic coin-flip filing. Rebuttal rings the customer once, asks two questions, and the answer decides: yes, and the transcript is cited and the packet is filed; no, and the agent HOLDs even though the carrier says delivered, because a customer who says no on the phone will say no to their bank. Live on the night: a real call to a real phone, `received=yes, recognises_charge=yes, confidence 0.95`.
 
-GPT-6 Astra is the writer, run as an **OpenAI Agents SDK** agent (`Agent` + `Runner`, typed `Claims` output, no tools, `max_turns=1`). It never chooses the verdict (a policy table does) and never touches an external app (the gate does). One agent run per dispute, about 400 tokens. The orchestration around it, the concurrent gather sub-agents, the gate, the detector, is plain asyncio so every decision point is a readable function.
+GPT-6 Astra is the coordinator, on the **OpenAI Agents SDK** (`Agent` with eight `function_tool`s, `Runner.run`, `max_turns=16`). One agent run per dispute, about 9,000 tokens across roughly ten turns. The model calls tools; the tools call the apps through the gate; the policy table decides; the detector reviews the trace afterwards. Nothing with a consequence happens inside the model.
 
 ## Reliability
 
@@ -81,7 +94,7 @@ Note that the Stripe disputes API **submits by default**. Rebuttal always stages
 
 `rebuttal/twins/` holds seedable, resettable twins of all six apps that record every call and every state change. The Stripe twin implements the same CE3.0 grading rule Stripe applies. The agent code is identical against twins and against the real apps.
 
-`scenarios/` seeds 22 starting states. `python -m rebuttal.evalsuite` resets the twins, runs each scenario three times, and grades the *complete outcome*: verdict, final state, forbidden effects blocked, detector findings, and, for HOLD/CONCEDE/blocked runs, that the twin shows no filing. No model calls, no network, runs in seconds.
+`scenarios/` seeds 22 starting states. `python -m rebuttal.evalsuite` resets the twins, runs the **real GPT-6 Astra coordinator** against them through the same eight tools as production, and grades the *complete outcome*: verdict, final state, forbidden effects blocked, detector findings, and, for HOLD/CONCEDE/blocked runs, that the twin shows no filing. Every attempt is a real model run; `REBUTTAL_EVAL_ATTEMPTS` sets the repeats.
 
 ```
 scenario                       expect                 pass  blocked  findings
@@ -191,8 +204,9 @@ python -m rebuttal.demo run                   # runs the agent; answer the call,
 ```
 rebuttal/policy.py     verdict table: reason code × evidence → SUBMIT / HOLD / CONCEDE
 rebuttal/gate.py       write-gate, six forbidden effects, trace
-rebuttal/agent.py      orchestrator: gather → assess → decide → write → review → act
-rebuttal/model.py      GPT-6 Astra writer (OpenAI Agents SDK, typed output); deterministic FakeModel for the suite
+rebuttal/coordinator.py GPT-6 Astra coordinator on the OpenAI Agents SDK: eight gated tools
+rebuttal/agent.py      toolbox: six clients, concurrent gather, evidence assessment, payload builder
+rebuttal/model.py      typed Claims writer (kept for the FakeModel used by the twins)
 rebuttal/detector.py   silent-failure detector
 rebuttal/twins/        seedable, resettable twins of Stripe, Gmail, Sheets, Slack
 rebuttal/clients.py    real clients, same interface as the twins (Stripe, Gmail, Sheets, Slack, Photon, CALL-E)

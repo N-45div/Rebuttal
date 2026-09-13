@@ -11,7 +11,7 @@ A filing agent can look like it worked and not have. It can skip a lookup and re
 | Layer | Command | What it proves | Network | Model |
 |---|---|---|---|---|
 | Unit tests | `python -m pytest -q` | policy table, gate rules, harness set-union property | no | no |
-| Scenario suite | `python -m rebuttal.evalsuite` | complete outcomes across 22 seeded states × 3 attempts | no | no |
+| Scenario suite | `python -m rebuttal.evalsuite` | the real Astra coordinator against twins of all six apps, complete outcomes across 22 seeded states | no | yes, Astra |
 | Stripe validator proof | `bash scripts/verify_ce3.sh` | Stripe test mode grades CE3.0 evidence `requires_action → qualified` | Stripe | no |
 | Live run | `python -m rebuttal.demo run` | six real apps, human click, real call, real filing | all | Astra |
 
