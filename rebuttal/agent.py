@@ -15,6 +15,7 @@ from .detector import Report, detect
 from .gate import Blocked, Effect, Gate, GateState, Trace
 from .model import Model
 from .policy import PHYSICAL, Decision, Evidence, Verdict, decide
+from .harness import apply_overrides, load_overrides
 
 DISPUTE_FEE_CENTS = 1500
 CE3_MIN_DAYS, CE3_MAX_DAYS = 120, 365
@@ -64,6 +65,7 @@ class Rebuttal:
     def __init__(self, stripe, gmail, sheets, slack, model: Model, channel: str = "#rebuttal", now: datetime | None = None, photon=None):
         self.stripe, self.gmail, self.sheets, self.slack, self.model = stripe, gmail, sheets, slack, model
         self.photon = photon  # optional fifth app: text the customer instead of emailing, when a phone is on file
+        apply_overrides(load_overrides())  # tighten-only requirements learned from past losses
         self.channel = channel
         self.now = now or datetime.now(timezone.utc)
 
@@ -204,7 +206,8 @@ class Rebuttal:
         amount = b.dispute["amount"]
         have, kind = self.assess(b)
         decision = decide(reason, kind, have)
-        trace.span("decision", "policy.decide", verdict=decision.verdict.value, missing=[m.value for m in decision.missing], reason=decision.reason)
+        trace.span("decision", "policy.decide", verdict=decision.verdict.value, missing=[m.value for m in decision.missing], reason=decision.reason,
+                   reason_code=reason, fulfilment=kind, have=sorted(e.value for e in have))
 
         packet, dropped = self.write(b, reason, decision.verdict, trace)
         gate.state.uncited_claims = dropped
@@ -237,19 +240,20 @@ class Rebuttal:
                         outcome = final.get("status", "under_review")
                         if outcome == "won":
                             recovered = amount + DISPUTE_FEE_CENTS
+                        # customer notice: Photon text is the channel; email only when no phone or no existing thread
                         email = (b.charge.get("billing_details") or {}).get("email")
                         phone = (b.charge.get("billing_details") or {}).get("phone")
                         note = self._customer_note(b)
+                        sent = False
                         if phone and self.photon is not None:
                             try:
                                 gate(Effect("photon", "messages.send", dispute_id), lambda: self.photon.send(phone, note))
+                                sent = True
                             except Blocked:
                                 raise
-                            except Exception as e:  # no existing thread: fall back to email, and say so in the trace
+                            except Exception as e:  # shared line refuses a cold thread: record it, fall back
                                 trace.span("effect", "photon.messages.send", target=dispute_id, result="ERROR", error=str(e)[:200])
-                                if email:
-                                    gate(Effect("gmail", "messages.send", dispute_id), lambda: self.gmail.send(email, "About your recent dispute", note))
-                        elif email:
+                        if not sent and email:
                             gate(Effect("gmail", "messages.send", dispute_id), lambda: self.gmail.send(email, "About your recent dispute", note))
                 except Blocked as e:
                     outcome = f"blocked:{e}"
