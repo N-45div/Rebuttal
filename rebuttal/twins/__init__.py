@@ -49,7 +49,7 @@ class StripeTwin(Twin):
     def charge(self, charge_id: str) -> dict[str, Any]:
         return self._rec("charges.retrieve", copy.deepcopy(self.state["charges"][charge_id]), id=charge_id)
 
-    def charges_for_fingerprint(self, fingerprint: str) -> list[dict[str, Any]]:
+    def charges_for_fingerprint(self, fingerprint: str, customer: str | None = None) -> list[dict[str, Any]]:
         out = [c for c in self.state["charges"].values() if c.get("fingerprint") == fingerprint and not c.get("disputed")]
         return self._rec("charges.search", copy.deepcopy(out), fingerprint=fingerprint)
 

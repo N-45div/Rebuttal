@@ -1,0 +1,106 @@
+{
+ "run_id": "1f559a1b6d",
+ "dispute_id": "du_1UFIOdAZHnJgtqr2qWKdC09h",
+ "spans": [
+  {
+   "t": 5.435,
+   "kind": "gather",
+   "name": "stripe.prior_charges",
+   "result": "ok",
+   "count": 2
+  },
+  {
+   "t": 5.705,
+   "kind": "gather",
+   "name": "gmail.thread",
+   "result": "ok"
+  },
+  {
+   "t": 5.836,
+   "kind": "gather",
+   "name": "sheets.order",
+   "result": "ok"
+  },
+  {
+   "t": 5.836,
+   "kind": "decision",
+   "name": "policy.decide",
+   "verdict": "submit",
+   "missing": [],
+   "reason": "all required evidence present and cited"
+  },
+  {
+   "t": 13.679,
+   "kind": "generation",
+   "name": "model.write",
+   "claims": 5,
+   "dropped_uncited": 0
+  },
+  {
+   "t": 13.679,
+   "kind": "review",
+   "name": "detector.pre",
+   "findings": []
+  },
+  {
+   "t": 14.078,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  },
+  {
+   "t": 19.371,
+   "kind": "interaction",
+   "name": "slack.approval",
+   "approved": true
+  },
+  {
+   "t": 19.88,
+   "kind": "effect",
+   "name": "stripe.disputes.update",
+   "target": "du_1UFIOdAZHnJgtqr2qWKdC09h",
+   "result": "OK"
+  },
+  {
+   "t": 34.416,
+   "kind": "effect",
+   "name": "stripe.disputes.update",
+   "target": "du_1UFIOdAZHnJgtqr2qWKdC09h",
+   "result": "OK"
+  },
+  {
+   "t": 34.854,
+   "kind": "effect",
+   "name": "gmail.messages.send",
+   "target": "du_1UFIOdAZHnJgtqr2qWKdC09h",
+   "result": "OK"
+  },
+  {
+   "t": 35.322,
+   "kind": "effect",
+   "name": "sheets.values.append",
+   "target": "du_1UFIOdAZHnJgtqr2qWKdC09h",
+   "result": "OK"
+  },
+  {
+   "t": 35.838,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  },
+  {
+   "t": 35.838,
+   "kind": "report",
+   "name": "slack.summary",
+   "text": "SUBMIT -> under_review | $89.00 at stake, $0.00 recovered, $15.00 fee at risk | 0 forbidden effects blocked | run 1f559a1b6d"
+  },
+  {
+   "t": 35.838,
+   "kind": "review",
+   "name": "detector.post",
+   "findings": []
+  }
+ ]
+}

@@ -2,7 +2,8 @@
 .venv/
 __pycache__/
 *.pyc
-runs/
+runs/*
+!runs/examples/
 token.json
 credentials.json
 .pytest_cache/

@@ -92,7 +92,8 @@ class Rebuttal:
         async def stripe_prior_agent():
             card = (charge.get("payment_method_details") or {}).get("card") or {}
             fp = card.get("fingerprint") or charge.get("fingerprint")
-            priors = await asyncio.to_thread(self.stripe.charges_for_fingerprint, fp) if fp else []
+            cust = charge.get("customer")
+            priors = await asyncio.to_thread(self.stripe.charges_for_fingerprint, fp, cust) if fp else []
             priors = [p for p in priors if p["id"] != charge["id"]]
             trace.span("gather", "stripe.prior_charges", result="ok" if priors else "empty", count=len(priors))
             return priors
@@ -213,9 +214,6 @@ class Rebuttal:
         if decision.verdict == Verdict.SUBMIT and hasattr(self.slack, "post_approval"):
             post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post_approval(text, dispute_id))
         else:
-            if decision.verdict == Verdict.SUBMIT and hasattr(self.slack, "post_approval"):
-            post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post_approval(text, dispute_id))
-        else:
             post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(self.channel, text))
         outcome, recovered, ce3_status = "held", 0, None
 
@@ -244,6 +242,10 @@ class Rebuttal:
                                  lambda: self.gmail.send(email, "About your recent dispute", self._customer_note(b)))
                 except Blocked as e:
                     outcome = f"blocked:{e}"
+                except Exception as e:  # the counterparty rejected the evidence: hold, record why, never retry blindly
+                    outcome = "held"
+                    trace.span("effect", "stripe.disputes.update", target=dispute_id, result="ERROR", error=str(e)[:300])
+                    ce3_status = "rejected_by_validator"
         elif decision.verdict == Verdict.CONCEDE:
             outcome = "conceded"
 
