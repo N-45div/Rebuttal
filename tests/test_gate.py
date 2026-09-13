@@ -41,7 +41,7 @@ def test_second_email_blocked():
     g = mk()
     e = Effect("gmail", "messages.send", "du_1")
     g(e, lambda: None)
-    with pytest.raises(Blocked, match="SECOND_EMAIL_TO_CUSTOMER"):
+    with pytest.raises(Blocked, match="SECOND_NOTICE_TO_CUSTOMER"):
         g(e, lambda: None)
 
 

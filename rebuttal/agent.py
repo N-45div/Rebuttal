@@ -61,8 +61,9 @@ def _order_id_from_charge(charge: dict[str, Any]) -> str:
 
 
 class Rebuttal:
-    def __init__(self, stripe, gmail, sheets, slack, model: Model, channel: str = "#rebuttal", now: datetime | None = None):
+    def __init__(self, stripe, gmail, sheets, slack, model: Model, channel: str = "#rebuttal", now: datetime | None = None, photon=None):
         self.stripe, self.gmail, self.sheets, self.slack, self.model = stripe, gmail, sheets, slack, model
+        self.photon = photon  # optional fifth app: text the customer instead of emailing, when a phone is on file
         self.channel = channel
         self.now = now or datetime.now(timezone.utc)
 
@@ -237,9 +238,19 @@ class Rebuttal:
                         if outcome == "won":
                             recovered = amount + DISPUTE_FEE_CENTS
                         email = (b.charge.get("billing_details") or {}).get("email")
-                        if email:
-                            gate(Effect("gmail", "messages.send", dispute_id),
-                                 lambda: self.gmail.send(email, "About your recent dispute", self._customer_note(b)))
+                        phone = (b.charge.get("billing_details") or {}).get("phone")
+                        note = self._customer_note(b)
+                        if phone and self.photon is not None:
+                            try:
+                                gate(Effect("photon", "messages.send", dispute_id), lambda: self.photon.send(phone, note))
+                            except Blocked:
+                                raise
+                            except Exception as e:  # no existing thread: fall back to email, and say so in the trace
+                                trace.span("effect", "photon.messages.send", target=dispute_id, result="ERROR", error=str(e)[:200])
+                                if email:
+                                    gate(Effect("gmail", "messages.send", dispute_id), lambda: self.gmail.send(email, "About your recent dispute", note))
+                        elif email:
+                            gate(Effect("gmail", "messages.send", dispute_id), lambda: self.gmail.send(email, "About your recent dispute", note))
                 except Blocked as e:
                     outcome = f"blocked:{e}"
                 except Exception as e:  # the counterparty rejected the evidence: hold, record why, never retry blindly

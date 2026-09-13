@@ -15,12 +15,12 @@ EMAIL = "jordan@example.com"
 
 def charge(cid: str, amount: int, *, age_days: int = 3, disputed: bool = False, ip: str = "146.196.38.93",
            device: str = "dev_a1", account: str = "cust_7781", ship_to: str = ADDR, order_id: str = "1042",
-           email: str = EMAIL, billing_address: str = ADDR) -> dict[str, Any]:
+           email: str = EMAIL, billing_address: str = ADDR, phone: str | None = None) -> dict[str, Any]:
     return {"id": cid, "amount": amount, "created_iso": f"T-{age_days}d", "age_days": age_days, "disputed": disputed,
             "fingerprint": "fp_visa_1", "ip": ip, "device": device, "account_id": account, "account": account,
             "ship_to": ship_to, "ship_to_struct": ADDR_STRUCT, "email": email, "items": f"Order {order_id}",
             "description": f"Order {order_id} - trail shoes", "metadata": {"order_id": order_id},
-            "billing_details": {"email": email} if email else {}, "billing_address": billing_address, "avs": "pass", "cvc": "pass",
+            "billing_details": ({"email": email} if email else {}) | ({"phone": phone} if phone else {}), "billing_address": billing_address, "avs": "pass", "cvc": "pass",
             "payment_method_details": {"card": {"fingerprint": "fp_visa_1"}}}
 
 
@@ -51,13 +51,14 @@ class Scenario:
     sheets: dict[str, Any]
     gmail: dict[str, Any]
     slack: dict[str, Any] = field(default_factory=lambda: {"human_clicks_approve": True})
+    photon: dict[str, Any] = field(default_factory=lambda: {"threads": []})
     model_misbehave: str | None = None
     expect_blocked_min: int = 0
     expect_findings: list[str] = field(default_factory=list)
     note: str = ""
 
     def seeds(self) -> dict[str, dict[str, Any]]:
-        return {k: copy.deepcopy(getattr(self, k)) for k in ("stripe", "sheets", "gmail", "slack")}
+        return {k: copy.deepcopy(getattr(self, k)) for k in ("stripe", "sheets", "gmail", "slack", "photon")}
 
 
 def _stripe(reason: str, would_win: bool, priors: list[dict[str, Any]] | None = None, **charge_kw: Any) -> dict[str, Any]:
@@ -127,6 +128,12 @@ SCENARIOS: list[Scenario] = [
     Scenario("gmail_thread_empty", "product_not_received", "submit", "won",
              _stripe("product_not_received", True), {"orders": [order()]}, {"messages": []},
              note="Gmail queried and found nothing: an answer, not a failure; no finding"),
+    Scenario("photon_text_existing_thread", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True, phone="+15550001111"), {"orders": [order()]}, {"messages": thread()}, photon={"threads": ["+15550001111"]},
+             note="customer has a phone with an existing thread: the notice goes by text, not email"),
+    Scenario("photon_cold_number_falls_back", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True, phone="+15559998888"), {"orders": [order()]}, {"messages": thread()}, photon={"threads": []},
+             note="shared line refuses a cold thread: agent records the error and emails instead"),
     Scenario("order_missing_from_ledger", "product_not_received", "hold", "held",
              _stripe("product_not_received", False), {"orders": []}, {"messages": thread()},
              note="ledger has no row for the order: cannot file"),

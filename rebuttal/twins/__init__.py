@@ -127,3 +127,17 @@ class SlackTwin(Twin):
     def await_approval(self, ts: str) -> bool:
         # In the twin the scenario decides what the human clicks.
         return self._rec("interaction.wait", bool(self.state.get("human_clicks_approve", True)), ts=ts)
+
+
+class PhotonTwin(Twin):
+    """Texts only land in threads that already exist; a cold number raises, like the real line."""
+    app = "photon"
+
+    def send(self, to: str, text: str) -> dict[str, Any]:
+        if to not in self.state.get("threads", []):
+            self._rec("messages.send", None, to=to)
+            raise RuntimeError("photon send failed: no_existing_thread")
+        msg = {"id": f"txt_{len(self.state.setdefault('sent', [])) + 1}", "to": to, "text": text}
+        self.state["sent"].append(msg)
+        self._effect("message.sent", to=to)
+        return self._rec("messages.send", msg, to=to)

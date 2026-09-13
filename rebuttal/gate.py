@@ -88,10 +88,11 @@ def no_ce3_prefilled_edits(e: Effect, s: GateState) -> str | None:
     return None
 
 
-def one_customer_email_per_dispute(e: Effect, s: GateState) -> str | None:
-    if e.app == "gmail" and e.action == "messages.send":
+def one_customer_notice_per_dispute(e: Effect, s: GateState) -> str | None:
+    # one notice per dispute across channels: an email OR a text, never both, never twice
+    if e.app in ("gmail", "photon") and e.action == "messages.send":
         if e.target in s.emailed:
-            return "SECOND_EMAIL_TO_CUSTOMER"
+            return "SECOND_NOTICE_TO_CUSTOMER"
     return None
 
 
@@ -106,7 +107,7 @@ FORBIDDEN: list[Rule] = [
     no_double_filing,
     no_uncited_claims,
     no_ce3_prefilled_edits,
-    one_customer_email_per_dispute,
+    one_customer_notice_per_dispute,
     no_refunds,
 ]
 
@@ -130,7 +131,7 @@ class Gate:
         self.allowed += 1
         self.trace.span("effect", f"{effect.app}.{effect.action}", target=effect.target, result="OK")
         # bookkeeping the rules depend on
-        if effect.app == "gmail" and effect.action == "messages.send":
+        if effect.app in ("gmail", "photon") and effect.action == "messages.send":
             self.state.emailed.add(effect.target)
         if effect.app == "stripe" and effect.action == "disputes.update" and effect.params.get("submit") is True:
             self.state.acted.add(effect.target)

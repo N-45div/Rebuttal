@@ -51,6 +51,7 @@ class StripeClient:
         if not bd.get("email") and c.get("customer"):  # email lives on the customer, not the charge
             cust = _plain(self.s.Customer.retrieve(c["customer"]))
             bd["email"] = cust.get("email")
+            bd["phone"] = bd.get("phone") or cust.get("phone")
             c["billing_details"] = bd
             if not bd.get("address") and cust.get("address"):
                 bd["address"] = cust["address"]
@@ -262,3 +263,26 @@ class SlackClient:
         finally:
             sm.close()
         return decision.get("ok", False)
+
+
+# ---------------- Photon (iMessage / RCS) ----------------
+class PhotonClient:
+    """Texts the customer through a Photon line, via a Node sidecar that reuses the spectrum-ts SDK.
+    Only sends into an existing thread: a shared line will not open a cold one."""
+    app = "photon"
+
+    def __init__(self, script: Path | None = None):
+        import shutil
+        self.node = shutil.which("node")
+        self.script = str(script or ROOT / "photon" / "send.mjs")
+
+    def send(self, to: str, text: str) -> dict[str, Any]:
+        import subprocess
+        if not self.node:
+            raise RuntimeError("node not found")
+        p = subprocess.run([self.node, self.script, to, text], capture_output=True, text=True, timeout=90)
+        out = (p.stdout or "").strip().splitlines()
+        data = json.loads(out[-1]) if out and out[-1].startswith("{") else {"ok": False, "error": (p.stderr or "")[-200:]}
+        if not data.get("ok"):
+            raise RuntimeError(f"photon send failed: {data.get('error')}")
+        return data
