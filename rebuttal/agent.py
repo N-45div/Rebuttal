@@ -211,9 +211,14 @@ class Rebuttal:
         if (self.calle is not None and phone and not b.thread and b.order
                 and reason in ("product_not_received", "unrecognized", "fraudulent")):
             o = b.order
+            masked = phone[:3] + "•••••" + phone[-4:]
+            gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(
+                self.channel, f"*Dispute {dispute_id}* · {reason} · no email thread from the customer. Calling {masked} to confirm receipt of order {o['order_id']}…"))
             try:
                 call = gate(Effect("calle", "calls.create", dispute_id, {"phone": phone}),
                             lambda: self.calle.confirm_receipt(phone, o["order_id"], o.get("items", "")))
+                gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(
+                    self.channel, f"Call done: received={call['received']}, recognises charge={call['recognises_charge']}, confidence {call.get('confidence')}. Building the packet…"))
                 quote = "; ".join(call.get("evidence") or [])[:200]
                 b.facts.append({"id": f"calle:{call['id']}", "text": f"Phone call to customer: received={call['received']}, recognises charge={call['recognises_charge']}. \"{quote}\""})
                 trace.span("gather", "calle.confirm_receipt", result=call.get("status"), received=call["received"], recognises=call["recognises_charge"])
