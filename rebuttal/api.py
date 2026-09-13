@@ -48,6 +48,8 @@ def runs():
     items = []
     for stem, f in _traces().items():
         t = json.loads(f.read_text(encoding="utf-8"))
+        if t.get("dispute_id") == "du_1":  # twin runs from the eval suite, not live executions
+            continue
         spans = t.get("spans", [])
         dec = next((s for s in spans if s.get("name") == "policy.decide"), {})
         rep = next((s for s in spans if s.get("kind") == "report"), {})
