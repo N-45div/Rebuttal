@@ -18,7 +18,7 @@ from scenarios import SCENARIOS, Scenario
 
 from .agent import Rebuttal
 from .model import FakeModel
-from .twins import GmailTwin, PhotonTwin, SheetsTwin, SlackTwin, StripeTwin
+from .twins import CalleTwin, GmailTwin, PhotonTwin, SheetsTwin, SlackTwin, StripeTwin
 
 
 def wilson(p: float, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -34,11 +34,12 @@ def run_scenario(s: Scenario, attempts: int) -> dict:
     seeds = s.seeds()
     stripe, gmail, sheets, slack = StripeTwin(seeds["stripe"]), GmailTwin(seeds["gmail"]), SheetsTwin(seeds["sheets"]), SlackTwin(seeds["slack"])
     photon = PhotonTwin(seeds["photon"])
+    calle = CalleTwin(seeds["calle"])
     passes, blocked, findings, outcomes = 0, 0, Counter(), []
     for _ in range(attempts):
-        for t in (stripe, gmail, sheets, slack, photon):
+        for t in (stripe, gmail, sheets, slack, photon, calle):
             t.reset()
-        agent = Rebuttal(stripe, gmail, sheets, slack, FakeModel(s.model_misbehave), photon=photon)
+        agent = Rebuttal(stripe, gmail, sheets, slack, FakeModel(s.model_misbehave), photon=photon, calle=calle)
         r = asyncio.run(agent.run("du_1"))
         ok = (r.verdict.value == s.expect_verdict and r.outcome == s.expect_outcome and r.blocked >= s.expect_blocked_min
               and all(any(f.mode == m for f in r.report.findings) for m in s.expect_findings))
@@ -46,6 +47,8 @@ def run_scenario(s: Scenario, attempts: int) -> dict:
         submitted = any(e["change"] == "dispute.submitted" for e in stripe.effects)
         if s.name.startswith("photon_text"):
             ok = ok and any(e["change"] == "message.sent" for e in photon.effects) and not gmail.effects
+        if s.name.startswith("call_confirms"):
+            ok = ok and any(e["change"] == "call.placed" for e in calle.effects)
         if s.name.startswith("photon_cold"):
             ok = ok and not photon.effects and any(e["change"] == "message.sent" for e in gmail.effects)
         if s.expect_outcome in ("held", "conceded") or s.expect_outcome.startswith("blocked"):

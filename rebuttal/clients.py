@@ -286,3 +286,31 @@ class PhotonClient:
         if not data.get("ok"):
             raise RuntimeError(f"photon send failed: {data.get('error')}")
         return data
+
+
+# ---------------- CALL-E (outbound phone call) ----------------
+class CalleClient:
+    """Places one outbound call to the customer to confirm receipt when the email thread is silent.
+    The structured answer becomes evidence; the transcript is cited like any other record."""
+    app = "calle"
+
+    def __init__(self):
+        from calle import CalleClient as _C
+        kw = {"api_key": os.environ["CALLE_API_KEY"]}
+        if os.environ.get("CALLE_BASE_URL"):
+            kw["base_url"] = os.environ["CALLE_BASE_URL"]
+        self.c = _C(**kw)
+
+    def confirm_receipt(self, phone: str, order_id: str, items: str, merchant: str = "the online store") -> dict[str, Any]:
+        task = (f"Call {phone}. You are calling on behalf of {merchant} about order {order_id} ({items}). "
+                f"Politely ask whether they received the order and whether they recognise the charge. "
+                f"Do not discuss refunds or disputes. Thank them and end the call.")
+        schema = {"type": "object", "required": ["received", "recognises_charge"], "additionalProperties": False,
+                  "properties": {"received": {"type": "string", "enum": ["yes", "no", "unknown"]},
+                                 "recognises_charge": {"type": "string", "enum": ["yes", "no", "unknown"]}}}
+        call = self.c.calls.create_and_wait(task=task, result_schema=schema, recipients=[{"phones": [phone]}])
+        d = call if isinstance(call, dict) else json.loads(str(call))
+        res = d.get("structured_result") or {}
+        return {"id": d.get("id") or d.get("call_id", "call"), "status": d.get("status"), "received": res.get("received", "unknown"),
+                "recognises_charge": res.get("recognises_charge", "unknown"), "evidence": d.get("evidence") or [],
+                "confidence": (d.get("completion_confidence") or {}).get("score")}

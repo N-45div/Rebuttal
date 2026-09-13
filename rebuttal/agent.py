@@ -62,9 +62,10 @@ def _order_id_from_charge(charge: dict[str, Any]) -> str:
 
 
 class Rebuttal:
-    def __init__(self, stripe, gmail, sheets, slack, model: Model, channel: str = "#rebuttal", now: datetime | None = None, photon=None):
+    def __init__(self, stripe, gmail, sheets, slack, model: Model, channel: str = "#rebuttal", now: datetime | None = None, photon=None, calle=None):
         self.stripe, self.gmail, self.sheets, self.slack, self.model = stripe, gmail, sheets, slack, model
         self.photon = photon  # optional fifth app: text the customer instead of emailing, when a phone is on file
+        self.calle = calle    # optional sixth app: one confirmation call when the email thread is silent
         apply_overrides(load_overrides())  # tighten-only requirements learned from past losses
         self.channel = channel
         self.now = now or datetime.now(timezone.utc)
@@ -205,7 +206,29 @@ class Rebuttal:
         reason = b.dispute["reason"]
         amount = b.dispute["amount"]
         have, kind = self.assess(b)
+        # silent thread on a delivery dispute: one confirmation call, and the answer is evidence
+        phone = (b.charge.get("billing_details") or {}).get("phone")
+        if (self.calle is not None and phone and not b.thread and b.order
+                and reason in ("product_not_received", "unrecognized", "fraudulent")):
+            o = b.order
+            try:
+                call = gate(Effect("calle", "calls.create", dispute_id, {"phone": phone}),
+                            lambda: self.calle.confirm_receipt(phone, o["order_id"], o.get("items", "")))
+                quote = "; ".join(call.get("evidence") or [])[:200]
+                b.facts.append({"id": f"calle:{call['id']}", "text": f"Phone call to customer: received={call['received']}, recognises charge={call['recognises_charge']}. \"{quote}\""})
+                trace.span("gather", "calle.confirm_receipt", result=call.get("status"), received=call["received"], recognises=call["recognises_charge"])
+                if call["received"] == "yes":
+                    have.add(Evidence.CUSTOMER_COMMUNICATION)
+                    b.call_confirmed = True
+                elif call["received"] == "no" or call["recognises_charge"] == "no":
+                    b.call_denied = True
+            except Blocked:
+                raise
+            except Exception as e:
+                trace.span("gather", "calle.confirm_receipt", result="error", error=str(e)[:200])
         decision = decide(reason, kind, have)
+        if getattr(b, "call_denied", False) and decision.verdict == Verdict.SUBMIT:
+            decision = Decision(Verdict.HOLD, [], "customer said on the phone they did not receive it or do not recognise the charge; human decides")
         trace.span("decision", "policy.decide", verdict=decision.verdict.value, missing=[m.value for m in decision.missing], reason=decision.reason,
                    reason_code=reason, fulfilment=kind, have=sorted(e.value for e in have))
 

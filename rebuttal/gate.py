@@ -54,6 +54,7 @@ class GateState:
     emailed: set[str] = field(default_factory=set)        # customers already notified (per dispute)
     acted: set[str] = field(default_factory=set)          # dispute ids already filed
     uncited_claims: int = 0                                # set by the packet builder before submit
+    called: set[str] = field(default_factory=set)         # dispute ids the customer was already called about
 
 
 # ---- Forbidden effects, declared up front. Names appear verbatim in the README. ----
@@ -96,6 +97,13 @@ def one_customer_notice_per_dispute(e: Effect, s: GateState) -> str | None:
     return None
 
 
+def one_call_per_dispute(e: Effect, s: GateState) -> str | None:
+    if e.app == "calle" and e.action == "calls.create":
+        if e.target in s.called:
+            return "SECOND_CALL_TO_CUSTOMER"
+    return None
+
+
 def no_refunds(e: Effect, s: GateState) -> str | None:
     if e.app == "stripe" and e.action.startswith("refunds."):
         return "REFUND_OUTSIDE_SCOPE"
@@ -108,6 +116,7 @@ FORBIDDEN: list[Rule] = [
     no_uncited_claims,
     no_ce3_prefilled_edits,
     one_customer_notice_per_dispute,
+    one_call_per_dispute,
     no_refunds,
 ]
 
@@ -133,6 +142,8 @@ class Gate:
         # bookkeeping the rules depend on
         if effect.app in ("gmail", "photon") and effect.action == "messages.send":
             self.state.emailed.add(effect.target)
+        if effect.app == "calle" and effect.action == "calls.create":
+            self.state.called.add(effect.target)
         if effect.app == "stripe" and effect.action == "disputes.update" and effect.params.get("submit") is True:
             self.state.acted.add(effect.target)
         return out

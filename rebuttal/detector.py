@@ -17,7 +17,7 @@ class Finding:
 
 
 ALLOWED_EFFECTS = {
-    "stripe.disputes.update", "gmail.messages.send", "photon.messages.send", "sheets.values.append", "slack.chat.postMessage",
+    "stripe.disputes.update", "gmail.messages.send", "photon.messages.send", "calle.calls.create", "sheets.values.append", "slack.chat.postMessage",
 }
 
 

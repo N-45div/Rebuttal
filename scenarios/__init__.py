@@ -52,13 +52,14 @@ class Scenario:
     gmail: dict[str, Any]
     slack: dict[str, Any] = field(default_factory=lambda: {"human_clicks_approve": True})
     photon: dict[str, Any] = field(default_factory=lambda: {"threads": []})
+    calle: dict[str, Any] = field(default_factory=lambda: {"answers": {}})
     model_misbehave: str | None = None
     expect_blocked_min: int = 0
     expect_findings: list[str] = field(default_factory=list)
     note: str = ""
 
     def seeds(self) -> dict[str, dict[str, Any]]:
-        return {k: copy.deepcopy(getattr(self, k)) for k in ("stripe", "sheets", "gmail", "slack", "photon")}
+        return {k: copy.deepcopy(getattr(self, k)) for k in ("stripe", "sheets", "gmail", "slack", "photon", "calle")}
 
 
 def _stripe(reason: str, would_win: bool, priors: list[dict[str, Any]] | None = None, **charge_kw: Any) -> dict[str, Any]:
@@ -134,6 +135,18 @@ SCENARIOS: list[Scenario] = [
     Scenario("photon_cold_number_falls_back", "product_not_received", "submit", "won",
              _stripe("product_not_received", True, phone="+15559998888"), {"orders": [order()]}, {"messages": thread()}, photon={"threads": []},
              note="shared line refuses a cold thread: agent records the error and emails instead"),
+    Scenario("call_confirms_receipt", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True, phone="+15550001111"), {"orders": [order(signature_image=False)]}, {"messages": []},
+             photon={"threads": ["+15550001111"]}, calle={"answers": {"+15550001111": {"received": "yes", "recognises_charge": "yes", "quote": "Yes, the shoes arrived last week."}}},
+             note="no email thread: one confirmation call; the customer says yes on the phone and that becomes cited evidence"),
+    Scenario("call_says_not_received", "product_not_received", "hold", "held",
+             _stripe("product_not_received", False, phone="+15550001111"), {"orders": [order()]}, {"messages": []},
+             calle={"answers": {"+15550001111": {"received": "no", "recognises_charge": "yes", "quote": "No, nothing arrived."}}},
+             note="the customer says no on the phone: the agent holds even though the carrier says delivered"),
+    Scenario("call_unanswered", "product_not_received", "submit", "won",
+             _stripe("product_not_received", True, phone="+15550009999"), {"orders": [order()]}, {"messages": []},
+             photon={"threads": []}, calle={"answers": {}},
+             note="no answer on the phone: evidence unchanged, carrier proof still carries the filing"),
     Scenario("order_missing_from_ledger", "product_not_received", "hold", "held",
              _stripe("product_not_received", False), {"orders": []}, {"messages": thread()},
              note="ledger has no row for the order: cannot file"),

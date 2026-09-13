@@ -141,3 +141,18 @@ class PhotonTwin(Twin):
         self.state["sent"].append(msg)
         self._effect("message.sent", to=to)
         return self._rec("messages.send", msg, to=to)
+
+
+class CalleTwin(Twin):
+    """Scripted customer: the scenario decides what they say on the phone."""
+    app = "calle"
+
+    def confirm_receipt(self, phone: str, order_id: str, items: str, merchant: str = "the online store") -> dict[str, Any]:
+        ans = self.state.get("answers", {}).get(phone)
+        if ans is None:
+            self._rec("calls.create", None, phone=phone)
+            return {"id": "call_none", "status": "failed", "received": "unknown", "recognises_charge": "unknown", "evidence": [], "confidence": None}
+        out = {"id": f"call_{len(self.calls) + 1}", "status": "completed", "received": ans.get("received", "unknown"),
+               "recognises_charge": ans.get("recognises_charge", "unknown"), "evidence": [ans.get("quote", "")], "confidence": 0.9}
+        self._effect("call.placed", to=phone, received=out["received"])
+        return self._rec("calls.create", out, phone=phone)
