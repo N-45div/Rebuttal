@@ -1,0 +1,140 @@
+{
+ "run_id": "f25c8630ea",
+ "dispute_id": "du_1UFM9lAZHnJgtqr2lPJkRbbm",
+ "spans": [
+  {
+   "t": 6.201,
+   "kind": "gather",
+   "name": "gmail.thread",
+   "result": "empty"
+  },
+  {
+   "t": 6.201,
+   "kind": "gather",
+   "name": "sheets.order",
+   "result": "ok"
+  },
+  {
+   "t": 6.708,
+   "kind": "gather",
+   "name": "stripe.prior_charges",
+   "result": "ok",
+   "count": 2
+  },
+  {
+   "t": 116.476,
+   "kind": "effect",
+   "name": "calle.calls.create",
+   "target": "du_1UFM9lAZHnJgtqr2lPJkRbbm",
+   "result": "OK"
+  },
+  {
+   "t": 116.476,
+   "kind": "gather",
+   "name": "calle.confirm_receipt",
+   "result": "completed",
+   "received": "yes",
+   "recognises": "yes"
+  },
+  {
+   "t": 118.988,
+   "kind": "decision",
+   "name": "policy.decide",
+   "verdict": "submit",
+   "missing": [],
+   "reason": "all required evidence present and cited",
+   "reason_code": "fraudulent",
+   "fulfilment": "physical",
+   "have": [
+    "ce3_elements_match",
+    "ce3_prior_transactions",
+    "customer_communication",
+    "order_record",
+    "tracking_delivered",
+    "tracking_signature"
+   ]
+  },
+  {
+   "t": 124.532,
+   "kind": "generation",
+   "name": "coordinator.propose_packet",
+   "claims": 5,
+   "dropped_uncited": 0
+  },
+  {
+   "t": 124.532,
+   "kind": "review",
+   "name": "detector.pre",
+   "findings": [],
+   "details": []
+  },
+  {
+   "t": 126.999,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  },
+  {
+   "t": 132.81,
+   "kind": "interaction",
+   "name": "slack.approval",
+   "approved": true
+  },
+  {
+   "t": 135.833,
+   "kind": "effect",
+   "name": "stripe.disputes.update",
+   "target": "du_1UFM9lAZHnJgtqr2lPJkRbbm",
+   "result": "OK"
+  },
+  {
+   "t": 142.182,
+   "kind": "effect",
+   "name": "stripe.disputes.update",
+   "target": "du_1UFM9lAZHnJgtqr2lPJkRbbm",
+   "result": "OK"
+  },
+  {
+   "t": 161.585,
+   "kind": "effect",
+   "name": "photon.messages.send",
+   "target": "du_1UFM9lAZHnJgtqr2lPJkRbbm",
+   "result": "OK"
+  },
+  {
+   "t": 164.147,
+   "kind": "effect",
+   "name": "sheets.values.append",
+   "target": "du_1UFM9lAZHnJgtqr2lPJkRbbm",
+   "result": "OK"
+  },
+  {
+   "t": 164.734,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  },
+  {
+   "t": 164.734,
+   "kind": "report",
+   "name": "slack.summary",
+   "text": "SUBMIT -> won | $89.00 at stake, $104.00 recovered, $15.00 fee returned | 0 forbidden effects blocked | run f25c8630ea | coordinator: gpt-6-astra"
+  },
+  {
+   "t": 168.036,
+   "kind": "generation",
+   "name": "coordinator.run",
+   "turns": 9,
+   "tokens": 12279
+  },
+  {
+   "t": 168.036,
+   "kind": "review",
+   "name": "detector.post",
+   "findings": [],
+   "details": []
+  }
+ ]
+}
