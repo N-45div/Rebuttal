@@ -1,0 +1,109 @@
+{
+ "run_id": "a13ef5da8d",
+ "dispute_id": "du_1UFIM1AZHnJgtqr2JEh58FhI",
+ "spans": [
+  {
+   "t": 1.378,
+   "kind": "gather",
+   "name": "gmail.thread",
+   "result": "skipped",
+   "why": "charge carries no customer email"
+  },
+  {
+   "t": 2.173,
+   "kind": "gather",
+   "name": "sheets.order",
+   "result": "ok"
+  },
+  {
+   "t": 2.68,
+   "kind": "gather",
+   "name": "stripe.prior_charges",
+   "result": "ok",
+   "count": 2
+  },
+  {
+   "t": 2.68,
+   "kind": "decision",
+   "name": "policy.decide",
+   "verdict": "submit",
+   "missing": [],
+   "reason": "all required evidence present and cited"
+  },
+  {
+   "t": 9.159,
+   "kind": "generation",
+   "name": "model.write",
+   "claims": 5,
+   "dropped_uncited": 0
+  },
+  {
+   "t": 9.16,
+   "kind": "review",
+   "name": "detector.pre",
+   "findings": []
+  },
+  {
+   "t": 9.726,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  },
+  {
+   "t": 22.13,
+   "kind": "interaction",
+   "name": "slack.approval",
+   "approved": true
+  },
+  {
+   "t": 22.617,
+   "kind": "effect",
+   "name": "stripe.disputes.update",
+   "target": "du_1UFIM1AZHnJgtqr2JEh58FhI",
+   "result": "OK"
+  },
+  {
+   "t": 23.235,
+   "kind": "effect",
+   "name": "stripe.disputes.update",
+   "target": "du_1UFIM1AZHnJgtqr2JEh58FhI",
+   "result": "OK"
+  },
+  {
+   "t": 23.677,
+   "kind": "effect",
+   "name": "sheets.values.append",
+   "target": "du_1UFIM1AZHnJgtqr2JEh58FhI",
+   "result": "OK"
+  },
+  {
+   "t": 24.17,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  },
+  {
+   "t": 24.17,
+   "kind": "report",
+   "name": "slack.summary",
+   "text": "SUBMIT -> under_review | $89.00 at stake, $0.00 recovered, $15.00 fee at risk | 0 forbidden effects blocked | run a13ef5da8d"
+  },
+  {
+   "t": 24.17,
+   "kind": "review",
+   "name": "detector.post",
+   "findings": [
+    "Skipped Work"
+   ]
+  },
+  {
+   "t": 24.727,
+   "kind": "effect",
+   "name": "slack.chat.postMessage",
+   "target": "#rebuttal",
+   "result": "OK"
+  }
+ ]
+}
