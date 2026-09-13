@@ -210,7 +210,13 @@ class Rebuttal:
         trace.span("review", "detector.pre", findings=[f.mode for f in report.findings])
 
         text = self._slack_text(b, decision, packet, dropped, report)
-        post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(self.channel, text))
+        if decision.verdict == Verdict.SUBMIT and hasattr(self.slack, "post_approval"):
+            post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post_approval(text, dispute_id))
+        else:
+            if decision.verdict == Verdict.SUBMIT and hasattr(self.slack, "post_approval"):
+            post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post_approval(text, dispute_id))
+        else:
+            post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(self.channel, text))
         outcome, recovered, ce3_status = "held", 0, None
 
         if decision.verdict == Verdict.SUBMIT:
