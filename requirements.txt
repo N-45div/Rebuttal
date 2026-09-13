@@ -1,5 +1,6 @@
 stripe>=10
 openai>=1.50
+openai-agents>=0.22
 slack-sdk>=3.30
 google-api-python-client>=2.140
 google-auth-oauthlib>=1.2

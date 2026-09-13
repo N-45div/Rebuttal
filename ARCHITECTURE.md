@@ -80,7 +80,7 @@ flowchart LR
         HS[harness.py<br/>tighten requirements after a loss]
     end
     subgraph model
-        M[GPT-6 Astra<br/>facts → cited claims]
+        M[GPT-6 Astra · OpenAI Agents SDK<br/>facts → typed cited claims]
     end
     subgraph counterparty
         CE[Stripe CE3.0 validator<br/>qualified / requires_action]
@@ -134,7 +134,7 @@ The agent does not know which one it has. The Stripe twin implements the CE3.0 g
 rebuttal/policy.py      verdict table                       deterministic
 rebuttal/gate.py        write-gate, seven rules, trace       deterministic
 rebuttal/agent.py       orchestrator                         async, 3 concurrent sub-agents + conditional call
-rebuttal/model.py       Astra writer · FakeModel             one model call per run
+rebuttal/model.py       Astra writer (Agents SDK) · FakeModel  one agent run per dispute
 rebuttal/detector.py    silent-failure detector              deterministic
 rebuttal/harness.py     tighten-only self-improvement        deterministic
 rebuttal/twins/         six twins                            offline

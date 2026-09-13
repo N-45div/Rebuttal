@@ -55,7 +55,7 @@ Stripe dispute webhook
 
 The call is the interesting one. A "product not received" dispute with a delivered scan but no word from the customer is the classic coin-flip filing. Rebuttal rings the customer once, asks two questions, and the answer decides: yes, and the transcript is cited and the packet is filed; no, and the agent HOLDs even though the carrier says delivered, because a customer who says no on the phone will say no to their bank. Live on the night: a real call to a real phone, `received=yes, recognises_charge=yes, confidence 0.95`.
 
-GPT-6 Astra is the writer. It never chooses the verdict (a policy table does) and never touches an external app (the gate does). One model call per run, about 375 tokens.
+GPT-6 Astra is the writer, run as an **OpenAI Agents SDK** agent (`Agent` + `Runner`, typed `Claims` output, no tools, `max_turns=1`). It never chooses the verdict (a policy table does) and never touches an external app (the gate does). One agent run per dispute, about 400 tokens. The orchestration around it, the concurrent gather sub-agents, the gate, the detector, is plain asyncio so every decision point is a readable function.
 
 ## Reliability
 
@@ -192,7 +192,7 @@ python -m rebuttal.demo run                   # runs the agent; answer the call,
 rebuttal/policy.py     verdict table: reason code × evidence → SUBMIT / HOLD / CONCEDE
 rebuttal/gate.py       write-gate, six forbidden effects, trace
 rebuttal/agent.py      orchestrator: gather → assess → decide → write → review → act
-rebuttal/model.py      GPT-6 Astra writer; deterministic FakeModel for the suite
+rebuttal/model.py      GPT-6 Astra writer (OpenAI Agents SDK, typed output); deterministic FakeModel for the suite
 rebuttal/detector.py   silent-failure detector
 rebuttal/twins/        seedable, resettable twins of Stripe, Gmail, Sheets, Slack
 rebuttal/clients.py    real clients, same interface as the twins (Stripe, Gmail, Sheets, Slack, Photon, CALL-E)
