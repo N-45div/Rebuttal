@@ -6,3 +6,4 @@ runs/
 token.json
 credentials.json
 .pytest_cache/
+slackapp/.slack/

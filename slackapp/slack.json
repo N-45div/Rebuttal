@@ -1,0 +1,1 @@
+{"hooks": {"get-manifest": "python get_manifest.py"}}
