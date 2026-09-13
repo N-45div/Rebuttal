@@ -15,6 +15,7 @@ import sys
 import time
 
 from .agent import Rebuttal
+from . import coordinator
 from .clients import CalleClient, GmailClient, PhotonClient, SheetsClient, SlackClient, StripeClient, google_creds
 from .model import AstraModel
 
@@ -94,7 +95,6 @@ def main() -> int:
     sd.add_argument("--silent-thread", action="store_true", help="seed no email thread, so the agent calls the customer")
     r = sub.add_parser("run")
     r.add_argument("--dispute")
-    r.add_argument("--auto-approve", action="store_true", help="skip the Slack click (for CI, not for the demo)")
     args = ap.parse_args()
     {"seed": seed, "run": run}[args.cmd](args)
     return 0

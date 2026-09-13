@@ -1,7 +1,7 @@
-"""The orchestrator. One dispute in, one of three verdicts out, every write gated.
-
-    gather (3 sub-agents, concurrent) -> assess -> decide -> write -> review
-        -> Slack (approve/hold) -> Stripe submit -> Gmail notice -> Sheets ledger -> Slack report
+"""The toolbox behind the coordinator: the six clients (real or twins), the concurrent gather,
+the deterministic evidence assessment, and the evidence payload builder. The coordinator in
+coordinator.py (GPT-6 Astra on the OpenAI Agents SDK) drives these through tools; every write
+still passes the gate.
 """
 from __future__ import annotations
 
@@ -196,118 +196,6 @@ class Rebuttal:
             }
             ev["enhanced_evidence"] = {"visa_compelling_evidence_3": _strip(ce3)}
         return _strip(ev)
-
-    # ---------- run ----------
-    async def run(self, dispute_id: str, approve: bool | None = None) -> RunResult:
-        run_id = uuid.uuid4().hex[:10]
-        trace = Trace(run_id, dispute_id)
-        gate = Gate(trace, GateState())
-        b = await self.gather(dispute_id, trace)
-        reason = b.dispute["reason"]
-        amount = b.dispute["amount"]
-        have, kind = self.assess(b)
-        # silent thread on a delivery dispute: one confirmation call, and the answer is evidence
-        phone = (b.charge.get("billing_details") or {}).get("phone")
-        if (self.calle is not None and phone and not b.thread and b.order
-                and reason in ("product_not_received", "unrecognized", "fraudulent")):
-            o = b.order
-            masked = phone[:3] + "•••••" + phone[-4:]
-            gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(
-                self.channel, f"*Dispute {dispute_id}* · {reason} · no email thread from the customer. Calling {masked} to confirm receipt of order {o['order_id']}…"))
-            try:
-                call = gate(Effect("calle", "calls.create", dispute_id, {"phone": phone}),
-                            lambda: self.calle.confirm_receipt(phone, o["order_id"], o.get("items", "")))
-                gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(
-                    self.channel, f"Call done: received={call['received']}, recognises charge={call['recognises_charge']}, confidence {call.get('confidence')}. Building the packet…"))
-                quote = "; ".join(call.get("evidence") or [])[:200]
-                b.facts.append({"id": f"calle:{call['id']}", "text": f"Phone call to customer: received={call['received']}, recognises charge={call['recognises_charge']}. \"{quote}\""})
-                trace.span("gather", "calle.confirm_receipt", result=call.get("status"), received=call["received"], recognises=call["recognises_charge"])
-                if call["received"] == "yes":
-                    have.add(Evidence.CUSTOMER_COMMUNICATION)
-                    b.call_confirmed = True
-                elif call["received"] == "no" or call["recognises_charge"] == "no":
-                    b.call_denied = True
-            except Blocked:
-                raise
-            except Exception as e:
-                trace.span("gather", "calle.confirm_receipt", result="error", error=str(e)[:200])
-        decision = decide(reason, kind, have)
-        if getattr(b, "call_denied", False) and decision.verdict == Verdict.SUBMIT:
-            decision = Decision(Verdict.HOLD, [], "customer said on the phone they did not receive it or do not recognise the charge; human decides")
-        trace.span("decision", "policy.decide", verdict=decision.verdict.value, missing=[m.value for m in decision.missing], reason=decision.reason,
-                   reason_code=reason, fulfilment=kind, have=sorted(e.value for e in have))
-
-        packet, dropped = self.write(b, reason, decision.verdict, trace)
-        gate.state.uncited_claims = dropped
-        report = detect(trace.spans, {"claims": packet["raw_claims"]}, b.as_dict(), decision.verdict.value, stage="pre")
-        trace.span("review", "detector.pre", findings=[f.mode for f in report.findings])
-
-        text = self._slack_text(b, decision, packet, dropped, report)
-        if decision.verdict == Verdict.SUBMIT and hasattr(self.slack, "post_approval"):
-            post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post_approval(text, dispute_id))
-        else:
-            post = gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(self.channel, text))
-        outcome, recovered, ce3_status = "held", 0, None
-
-        if decision.verdict == Verdict.SUBMIT:
-            ok = approve if approve is not None else self.slack.await_approval(post["ts"])
-            trace.span("interaction", "slack.approval", approved=ok)
-            if ok:
-                gate.state.approved.add(dispute_id)
-                payload = self._evidence_payload(b, packet, have)
-                try:
-                    staged = gate(Effect("stripe", "disputes.update", dispute_id, {"submit": False, "evidence": payload}),
-                                  lambda: self.stripe.update_dispute(dispute_id, payload, submit=False))
-                    ce3_status = staged.get("ce3_status") or self._ce3_status(staged)
-                    if reason == "fraudulent" and ce3_status and not ce3_status.startswith("qualified"):
-                        outcome = "held"
-                        trace.span("decision", "ce3.validator", status=ce3_status, action="held: Stripe says not qualified")
-                    else:
-                        final = gate(Effect("stripe", "disputes.update", dispute_id, {"submit": True, "evidence": payload}),
-                                     lambda: self.stripe.update_dispute(dispute_id, payload, submit=True))
-                        outcome = final.get("status", "under_review")
-                        if outcome == "won":
-                            recovered = amount + DISPUTE_FEE_CENTS
-                        # customer notice: Photon text is the channel; email only when no phone or no existing thread
-                        email = (b.charge.get("billing_details") or {}).get("email")
-                        phone = (b.charge.get("billing_details") or {}).get("phone")
-                        note = self._customer_note(b)
-                        sent = False
-                        if phone and self.photon is not None:
-                            try:
-                                gate(Effect("photon", "messages.send", dispute_id), lambda: self.photon.send(phone, note))
-                                sent = True
-                            except Blocked:
-                                raise
-                            except Exception as e:  # shared line refuses a cold thread: record it, fall back
-                                trace.span("effect", "photon.messages.send", target=dispute_id, result="ERROR", error=str(e)[:200])
-                        if not sent and email:
-                            gate(Effect("gmail", "messages.send", dispute_id), lambda: self.gmail.send(email, "About your recent dispute", note))
-                except Blocked as e:
-                    outcome = f"blocked:{e}"
-                except Exception as e:  # the counterparty rejected the evidence: hold, record why, never retry blindly
-                    outcome = "held"
-                    trace.span("effect", "stripe.disputes.update", target=dispute_id, result="ERROR", error=str(e)[:300])
-                    ce3_status = "rejected_by_validator"
-        elif decision.verdict == Verdict.CONCEDE:
-            outcome = "conceded"
-
-        gate(Effect("sheets", "values.append", dispute_id), lambda: self.sheets.append_outcome({
-            "dispute_id": dispute_id, "reason": reason, "verdict": decision.verdict.value, "outcome": outcome,
-            "amount": amount / 100, "recovered": recovered / 100, "run_id": run_id, "ce3": ce3_status or "",
-        }))
-        fee = "returned" if outcome == "won" else "at risk"
-        summary = (f"{decision.verdict.value.upper()} -> {outcome} | ${amount/100:.2f} at stake, ${recovered/100:.2f} recovered, "
-                   f"${DISPUTE_FEE_CENTS/100:.2f} fee {fee} | {gate.blocked} forbidden effects blocked | run {run_id}")
-        gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(self.channel, summary))
-        trace.span("report", "slack.summary", text=summary)
-        report = detect(trace.spans, {"claims": packet["raw_claims"]}, b.as_dict(), decision.verdict.value, stage="post")
-        trace.span("review", "detector.post", findings=[f.mode for f in report.findings])
-        if report.findings:
-            flags = "Review flags: " + "; ".join(f"{f.mode}: {f.detail}" for f in report.findings)
-            gate(Effect("slack", "chat.postMessage", self.channel), lambda: self.slack.post(self.channel, flags))
-        trace.dump()
-        return RunResult(run_id, dispute_id, decision.verdict, decision, outcome, amount, recovered, gate.blocked, report, trace, ce3_status)
 
     @staticmethod
     def _ce3_status(d: dict[str, Any]) -> str | None:
