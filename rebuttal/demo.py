@@ -73,19 +73,21 @@ def run(args) -> None:
     st = StripeClient()
     dispute_id = args.dispute or os.environ.get("DEMO_DISPUTE")
     if not dispute_id:
-        d = st.s.Dispute.list(limit=1).data[0]
-        dispute_id = d.id
+        dispute_id = st.s.Dispute.list(limit=1).data[0].id
     creds = google_creds()
     photon = PhotonClient() if os.environ.get("PHOTON_ENABLED", "1") == "1" else None
     calle = CalleClient() if os.environ.get("CALLE_API_KEY") else None
-    agent = Rebuttal(st, GmailClient(creds=creds), SheetsClient(creds=creds), SlackClient(), AstraModel(), photon=photon, calle=calle)
+    core = Rebuttal(st, GmailClient(creds=creds), SheetsClient(creds=creds), SlackClient(), AstraModel(), photon=photon, calle=calle)
     os.environ.setdefault("REBUTTAL_VERBOSE", "1")
-    print(f"rebuttal - dispute {dispute_id} - approve in Slack {agent.slack.channel}", flush=True)
-    r = asyncio.run(agent.run(dispute_id, approve=args.auto_approve or None))
-    print(f"\nverdict {r.verdict.value} -> {r.outcome} | ce3 {r.ce3_status} | ${r.amount_cents/100:.2f} at stake, ${r.recovered_cents/100:.2f} recovered | {r.blocked} forbidden effects blocked")
-    for f in r.report.findings:
-        print("  flag:", f.mode, "-", f.detail)
-    print("trace: runs/" + r.run_id + ".json")
+    print(f"rebuttal - dispute {dispute_id} - coordinator gpt-6-astra - approve in Slack {core.slack.channel}", flush=True)
+    c = asyncio.run(coordinator.run(core, dispute_id))
+    v = c.decision.verdict.value if c.decision else "none"
+    amt = c.bundle.dispute["amount"] if c.bundle else 0
+    print(f"verdict {v} -> {c.outcome} | ce3 {c.ce3_status} | ${amt/100:.2f} at stake, ${c.recovered/100:.2f} recovered | {c.gate.blocked} forbidden effects blocked", flush=True)
+    post = [s for s in c.trace.spans if s.get("name") == "detector.post"]
+    for m in (post[-1].get("details", post[-1].get("findings", [])) if post else []):
+        print("  flag:", m)
+    print("trace: runs/" + c.trace.run_id + ".json", flush=True)
 
 
 def main() -> int:

@@ -69,12 +69,17 @@ def call_customer(ctx: RunContextWrapper[Ctx]) -> str:
     if not phone or c.core.calle is None:
         return json.dumps({"error": "no phone on file or calling disabled"})
     o = b.order or {}
+    masked = phone[:3] + "•••••" + phone[-4:]
+    c.gate(Effect("slack", "chat.postMessage", c.core.channel), lambda: c.core.slack.post(
+        c.core.channel, f"*Dispute {c.dispute_id}* · {b.dispute['reason']} · no email thread from the customer. Calling {masked} to confirm receipt of order {o.get('order_id', '')}…"))
     try:
         call = c.gate(Effect("calle", "calls.create", c.dispute_id, {"phone": phone}),
                       lambda: c.core.calle.confirm_receipt(phone, o.get("order_id", ""), o.get("items", "")))
     except Blocked as e:
         return json.dumps({"blocked": str(e)})
     c.call = call
+    c.gate(Effect("slack", "chat.postMessage", c.core.channel), lambda: c.core.slack.post(
+        c.core.channel, f"Call done: received={call['received']}, recognises charge={call['recognises_charge']}, confidence {call.get('confidence')}. Building the packet…"))
     quote = "; ".join(call.get("evidence") or [])[:200]
     b.facts.append({"id": f"calle:{call['id']}", "text": f"Phone call to customer: received={call['received']}, recognises charge={call['recognises_charge']}. \"{quote}\""})
     c.trace.span("gather", "calle.confirm_receipt", result=call.get("status"), received=call["received"], recognises=call["recognises_charge"])
