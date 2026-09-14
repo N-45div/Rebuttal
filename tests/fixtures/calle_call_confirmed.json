@@ -1,0 +1,387 @@
+{
+ "call": {
+  "id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+  "object": "call_task",
+  "status": "completed",
+  "task": "Call +91******5425. You are calling on behalf of Ridge Outfitters about order 1042 (Trail shoes x1). Politely ask whether they received the order and whether they recognise the charge. Do not discuss refunds or disputes. Thank them and end the call.",
+  "recipients": [
+   {
+    "id": "rcp_41ba61275bba5c22",
+    "phones": [
+     "+91******5425"
+    ],
+    "locale": null,
+    "region": null,
+    "status": "completed",
+    "structured_result": null,
+    "summary": "The call was completed successfully. The recipient confirmed they received the order and recognized the charge.",
+    "attempts": [
+     {
+      "id": "att_930093e89bc0d3de",
+      "phone": "+91******5425",
+      "status": "completed",
+      "started_at": "2026-09-13T20:08:24Z",
+      "completed_at": "2026-09-13T20:09:04Z",
+      "summary": "The call was completed successfully. The recipient confirmed they received the order and recognized the charge.",
+      "transcript_turns": [
+       {
+        "offset_seconds": 0,
+        "speaker": "bot",
+        "text": "Hi."
+       },
+       {
+        "offset_seconds": 3,
+        "speaker": "user",
+        "text": "Hi."
+       },
+       {
+        "offset_seconds": 4,
+        "speaker": "bot",
+        "text": "Hi,"
+       },
+       {
+        "offset_seconds": 5,
+        "speaker": "bot",
+        "text": "I'm calling for Ridge Outfitters about order one, zero, four,"
+       },
+       {
+        "offset_seconds": 8,
+        "speaker": "bot",
+        "text": "two for one pair of Trail shoes, and I'd like to confirm a couple of details."
+       },
+       {
+        "offset_seconds": 12,
+        "speaker": "bot",
+        "text": "Did you receive the order?"
+       },
+       {
+        "offset_seconds": 17,
+        "speaker": "user",
+        "text": "HI received order."
+       },
+       {
+        "offset_seconds": 17,
+        "speaker": "bot",
+        "text": "Great, thanks for confirming."
+       },
+       {
+        "offset_seconds": 19,
+        "speaker": "bot",
+        "text": "Do you recognize the charge for the order?"
+       },
+       {
+        "offset_seconds": 24,
+        "speaker": "user",
+        "text": "Yes."
+       },
+       {
+        "offset_seconds": 24,
+        "speaker": "bot",
+        "text": "Thank you, bye."
+       }
+      ],
+      "provider_call_id": "61acf53db5744a57a0e4f8c45d855259",
+      "failure_code": null,
+      "failure_message": null
+     }
+    ]
+   }
+  ],
+  "structured_result": {
+   "received": "yes",
+   "recognises_charge": "yes"
+  },
+  "summary": "The call was completed successfully. The recipient confirmed they received the order and recognized the charge.",
+  "task_completed": true,
+  "completion_confidence": {
+   "score": 0.95,
+   "label": "high"
+  },
+  "evidence": [
+   "A live recipient answered the call.",
+   "They confirmed the order was received.",
+   "They confirmed the charge was recognized."
+  ],
+  "metadata": {},
+  "failure_code": null,
+  "failure_message": null,
+  "created_at": "2026-09-13T20:07:39.996685Z",
+  "completed_at": "2026-09-13T20:09:16.120294Z"
+ },
+ "events": {
+  "object": "list",
+  "data": [
+   {
+    "id": "evt_08651e6787a8175d43de592a",
+    "type": "call.started",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:07:53.024699Z",
+    "level": "info",
+    "status": "completed",
+    "message": "run_call started.",
+    "details": {}
+   },
+   {
+    "id": "evt_c9a8b10675cf3423a8daddca",
+    "type": "call.in_progress",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:07:55.436912Z",
+    "level": "info",
+    "status": "completed",
+    "message": "botlab create bot.",
+    "details": {}
+   },
+   {
+    "id": "evt_3bdb27d8e3436f1712866dfc",
+    "type": "call.in_progress",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:14.550910Z",
+    "level": "info",
+    "status": "completed",
+    "message": "calling resolve robot id.",
+    "details": {}
+   },
+   {
+    "id": "evt_8ab90f93fad82b664caed205",
+    "type": "call.in_progress",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:17.093042Z",
+    "level": "info",
+    "status": "completed",
+    "message": "calling create task.",
+    "details": {}
+   },
+   {
+    "id": "evt_ac952eec299f03722758f560",
+    "type": "call.completed",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:18.493926Z",
+    "level": "info",
+    "status": "completed",
+    "message": "calling task created.",
+    "details": {}
+   },
+   {
+    "id": "evt_4d3a5284390c4506785a705f",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:18.997754Z",
+    "level": "info",
+    "status": "completed",
+    "message": "calling task status=pending",
+    "details": {}
+   },
+   {
+    "id": "evt_045b8089209afd357f65277e",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:26.623760Z",
+    "level": "info",
+    "status": "completed",
+    "message": "calling task status=calling",
+    "details": {}
+   },
+   {
+    "id": "evt_2723bef682e396a29478c770",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:28.414748Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Call is ringing.",
+    "details": {}
+   },
+   {
+    "id": "evt_95f194d46058a6ac9820dad3",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:36.758096Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Call connected.",
+    "details": {}
+   },
+   {
+    "id": "evt_138ae97a30b82a73617cc879",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:37.238487Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: Hi.",
+    "details": {}
+   },
+   {
+    "id": "evt_e9847f4a45b79d22cc6223e7",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:40.550742Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: Hi.",
+    "details": {}
+   },
+   {
+    "id": "evt_fc81539f3bd8c1802d991290",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:41.580574Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: Hi,",
+    "details": {}
+   },
+   {
+    "id": "evt_2991624803ab064d5bc82cac",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:42.313397Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: I'm calling for Ridge Outfitters about order one, zero, four,",
+    "details": {}
+   },
+   {
+    "id": "evt_59db8908187f149a1635e505",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:45.872838Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: two for one pair of Trail shoes, and I'd like to confirm a couple of details.",
+    "details": {}
+   },
+   {
+    "id": "evt_e53f9de8cd390c63a4b79c8b",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:49.942019Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: Did you receive the order?",
+    "details": {}
+   },
+   {
+    "id": "evt_88c92f45f1b05003e3eaffe7",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:53.821997Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: which i received",
+    "details": {}
+   },
+   {
+    "id": "evt_71680372cb65eda107af8db5",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:54.146975Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: HI received",
+    "details": {}
+   },
+   {
+    "id": "evt_7154f7c014d4451b0621923f",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:54.492040Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: which i received",
+    "details": {}
+   },
+   {
+    "id": "evt_65c31481c4173f6c5fceae27",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:54.736810Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: HI received order.",
+    "details": {}
+   },
+   {
+    "id": "evt_544397a3835eba0410b8ac34",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:55.043240Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: Great, thanks for confirming.",
+    "details": {}
+   },
+   {
+    "id": "evt_876ab0a8df21188c7c983f9c",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:08:56.862783Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: Do you recognize the charge for the order?",
+    "details": {}
+   },
+   {
+    "id": "evt_9130e323dff7f1f33ae2ca82",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:09:00.952745Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: yes",
+    "details": {}
+   },
+   {
+    "id": "evt_ba490ecfb9b592362e982db6",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:09:01.561155Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Callee said: Yes.",
+    "details": {}
+   },
+   {
+    "id": "evt_d5e0b5510873c8b931cca0a9",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:09:02.102261Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Bot is speaking: Thank you, bye.",
+    "details": {}
+   },
+   {
+    "id": "evt_fbea91e39cd1420049779c79",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:09:04.891344Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Call ended; syncing final Calling result.",
+    "details": {}
+   },
+   {
+    "id": "evt_7fdf77f02c54149cb7bb1889",
+    "type": "call.completed",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:09:10.832007Z",
+    "level": "info",
+    "status": "completed",
+    "message": "Call ended from realtime events.",
+    "details": {}
+   },
+   {
+    "id": "evt_ed74668737b736937b9ad010",
+    "type": "call.updated",
+    "call_id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+    "created_at": "2026-09-13T20:09:41.324195Z",
+    "level": "info",
+    "status": "completed",
+    "message": "calling task status=finished",
+    "details": {}
+   }
+  ],
+  "next_cursor": null
+ }
+}
