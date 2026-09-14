@@ -212,7 +212,7 @@ One agent execution is one trace in `runs/<run_id>.json`: gather spans, every CA
 See [SETUP.md](SETUP.md) for every app and key. The short version:
 
 ```bash
-python -m pytest -q                                  # 49 unit tests
+python -m pytest -q                                  # 52 unit tests
 python -m rebuttal.confirm                           # the call, no keys
 python -m rebuttal.evalsuite --only call_            # the call scenarios with the real coordinator
 python -m rebuttal.demo seed --scenario call         # a dispute only the call can win

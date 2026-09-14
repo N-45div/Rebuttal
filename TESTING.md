@@ -17,7 +17,7 @@ A filing agent can look like it worked and not have. It can skip a lookup and re
 | Live call | `python -m rebuttal.confirm --live` | one real CALL-E call, grounded | CALL-E | no |
 | Live run | `python -m rebuttal.demo run --live-calls` | six real apps, real call, human click, real filing | all | Astra |
 
-### 1. Unit tests: 49
+### 1. Unit tests: 52
 
 ```
 tests/test_call.py     23 tests  grounding against the real first live call (answers grounded, not usable: no disclosure);
@@ -31,6 +31,7 @@ tests/test_gate.py     14 tests  each forbidden effect blocks; approved submit p
 tests/test_policy.py    9 tests  SUBMIT/HOLD/CONCEDE per reason code; confirmed receipt on a call stands in for a missing scan,
                                  but never rescues a fraud dispute without CE3.0
 tests/test_harness.py   3 tests  a lost SUBMIT proposes the absent evidence; won/held runs propose nothing; tighten() never removes
+tests/test_replay.py    3 tests  a no stops the filing even next to a grounded yes; a usable grounded yes is used; an unusable call is not
 ```
 
 The real-call fixture `tests/fixtures/calle_call_confirmed.json` is the `calls.get` and `list_events` response for our first live call, with the phone number masked. A test asserts the unmasked number is absent.

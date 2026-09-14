@@ -7,7 +7,7 @@ Offline first, then one app at a time. The first two commands need no accounts a
 ```bash
 git clone https://github.com/N-45div/Rebuttal && cd Rebuttal
 pip install -r requirements.txt
-python -m pytest -q                    # 49 unit tests, including grounding against a real CALL-E transcript
+python -m pytest -q                    # 52 unit tests, including grounding against a real CALL-E transcript
 python -m rebuttal.confirm             # one confirmation call against the CALL-E twin: events, transcript, checks, PDF; nothing rings
 ```
 
