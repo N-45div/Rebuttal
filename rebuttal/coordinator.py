@@ -89,7 +89,7 @@ def call_customer(ctx: RunContextWrapper[Ctx]) -> str:
 
     head = say(f"*Dispute {c.dispute_id}* \u00b7 {b.dispute['reason']} \u00b7 no email thread from the customer. "
                f"Calling {call.mask(phone)} with CALL-E to confirm order {args['order_id']}\u2026")
-    thread = (head or {}).get("ts")
+    thread = (head or {}).get("ts") if os.environ.get("REBUTTAL_SLACK_THREAD", "1") != "0" else None  # 0: post in the channel, for screen demos
     try:
         created = c.gate(Effect("calle", "calls.create", c.dispute_id, params),
                          lambda: call.place(core.calle, dispute_id=c.dispute_id, phone=phone, run_id=c.trace.run_id, **args))
