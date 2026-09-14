@@ -28,11 +28,11 @@ class Twin:
 
     def reset(self) -> None:
         self.state = copy.deepcopy(self._seed)
-        self.calls: list[Call] = []
+        self.log: list[Call] = []
         self.effects: list[dict[str, Any]] = []   # state changes, for the evidence log
 
     def _rec(self, op: str, result: Any = None, **args: Any) -> Any:
-        self.calls.append(Call(self.app, op, args, result))
+        self.log.append(Call(self.app, op, args, result))
         return result
 
     def _effect(self, what: str, **data: Any) -> None:
@@ -52,6 +52,12 @@ class StripeTwin(Twin):
     def charges_for_fingerprint(self, fingerprint: str, customer: str | None = None) -> list[dict[str, Any]]:
         out = [c for c in self.state["charges"].values() if c.get("fingerprint") == fingerprint and not c.get("disputed")]
         return self._rec("charges.search", copy.deepcopy(out), fingerprint=fingerprint)
+
+    def upload_evidence(self, data: bytes, filename: str) -> str:
+        fid = f"file_twin{len(self.state.setdefault('files', [])) + 1:03d}"
+        self.state["files"].append({"id": fid, "name": filename, "bytes": len(data), "pdf": data[:4] == b"%PDF"})
+        self._effect("file.created", id=fid, name=filename)
+        return self._rec("files.create", fid, name=filename)
 
     def update_dispute(self, dispute_id: str, evidence: dict[str, Any], submit: bool) -> dict[str, Any]:
         d = self.state["disputes"][dispute_id]
@@ -118,8 +124,8 @@ class SheetsTwin(Twin):
 class SlackTwin(Twin):
     app = "slack"
 
-    def post(self, channel: str, text: str, blocks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-        msg = {"ts": f"{len(self.state.setdefault('posts', [])) + 1}.0", "channel": channel, "text": text, "blocks": blocks or []}
+    def post(self, channel: str, text: str, blocks: list[dict[str, Any]] | None = None, thread_ts: str | None = None) -> dict[str, Any]:
+        msg = {"ts": f"{len(self.state.setdefault('posts', [])) + 1}.0", "channel": channel, "text": text, "blocks": blocks or [], "thread_ts": thread_ts}
         self.state["posts"].append(msg)
         self._effect("message.posted", channel=channel)
         return self._rec("chat.postMessage", msg, channel=channel)
@@ -143,16 +149,5 @@ class PhotonTwin(Twin):
         return self._rec("messages.send", msg, to=to)
 
 
-class CalleTwin(Twin):
-    """Scripted customer: the scenario decides what they say on the phone."""
-    app = "calle"
 
-    def confirm_receipt(self, phone: str, order_id: str, items: str, merchant: str = "the online store") -> dict[str, Any]:
-        ans = self.state.get("answers", {}).get(phone)
-        if ans is None:
-            self._rec("calls.create", None, phone=phone)
-            return {"id": "call_none", "status": "failed", "received": "unknown", "recognises_charge": "unknown", "evidence": [], "confidence": None}
-        out = {"id": f"call_{len(self.calls) + 1}", "status": "completed", "received": ans.get("received", "unknown"),
-               "recognises_charge": ans.get("recognises_charge", "unknown"), "evidence": [ans.get("quote", "")], "confidence": 0.9}
-        self._effect("call.placed", to=phone, received=out["received"])
-        return self._rec("calls.create", out, phone=phone)
+from .calle import CalleTwin  # noqa: E402,F401  (defined in calle.py, imports Twin from here)
