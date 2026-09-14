@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     pdf = out / f"{call_id}.pdf"
     pdf.write_bytes(call.evidence_pdf(rec, g, merchant=args.merchant, order_id=args.order, dispute_id=args.dispute, phone=args.to))
     used = g.usable and not g.denied and "yes" in (g.accepted["received"], g.accepted["recognises_charge"])
-    print(f"document          {pdf}")
+    print(f"document          {pdf.relative_to(ROOT).as_posix()}")
     print(f"decision          {'stops the filing' if g.denied else ('would be filed as customer communication' if used else 'would not be filed')}")
     return 0
 
