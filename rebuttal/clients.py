@@ -77,6 +77,17 @@ class StripeClient:
                         "ship_to_struct": _addr_struct(md.get("ship_to")), "items": c.get("description") or "prior order"})
         return out
 
+    def upload_evidence(self, data: bytes, filename: str) -> str:
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as fh:
+            fh.write(data)
+            path = fh.name
+        try:
+            with open(path, "rb") as fh:
+                return self.s.File.create(purpose="dispute_evidence", file=fh).id
+        finally:
+            os.remove(path)
+
     def update_dispute(self, dispute_id: str, evidence: dict[str, Any], submit: bool) -> dict[str, Any]:
         # TEST MODE ONLY: Stripe resolves a test dispute by the literal marker "winning_evidence" / "losing_evidence".
         # The CE3.0 validator is real; the won/lost verdict in test mode is not. README says so.
@@ -222,8 +233,8 @@ class SlackClient:
             pass
         self.channel_id = found["id"]
 
-    def post(self, channel: str, text: str, blocks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-        res = self.web.chat_postMessage(channel=self.channel_id, text=text, blocks=blocks)
+    def post(self, channel: str, text: str, blocks: list[dict[str, Any]] | None = None, thread_ts: str | None = None) -> dict[str, Any]:
+        res = self.web.chat_postMessage(channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts)
         return {"ts": res["ts"], "channel": self.channel_id, "text": text}
 
     def post_approval(self, text: str, dispute_id: str) -> dict[str, Any]:
@@ -290,27 +301,14 @@ class PhotonClient:
 
 # ---------------- CALL-E (outbound phone call) ----------------
 class CalleClient:
-    """Places one outbound call to the customer to confirm receipt when the email thread is silent.
-    The structured answer becomes evidence; the transcript is cited like any other record."""
+    """The CALL-E SDK client as the agent sees it: calls.create / get / list_events. `live` marks real calls for the gate."""
     app = "calle"
+    live = True
 
     def __init__(self):
-        from calle import CalleClient as _C
+        from calle import CalleClient as _Calle
         kw = {"api_key": os.environ["CALLE_API_KEY"]}
         if os.environ.get("CALLE_BASE_URL"):
             kw["base_url"] = os.environ["CALLE_BASE_URL"]
-        self.c = _C(**kw)
-
-    def confirm_receipt(self, phone: str, order_id: str, items: str, merchant: str = "the online store") -> dict[str, Any]:
-        task = (f"Call {phone}. You are calling on behalf of {merchant} about order {order_id} ({items}). "
-                f"Politely ask whether they received the order and whether they recognise the charge. "
-                f"Do not discuss refunds or disputes. Thank them and end the call.")
-        schema = {"type": "object", "required": ["received", "recognises_charge"], "additionalProperties": False,
-                  "properties": {"received": {"type": "string", "enum": ["yes", "no", "unknown"]},
-                                 "recognises_charge": {"type": "string", "enum": ["yes", "no", "unknown"]}}}
-        call = self.c.calls.create_and_wait(task=task, result_schema=schema, recipients=[{"phones": [phone]}])
-        d = call if isinstance(call, dict) else json.loads(str(call))
-        res = d.get("structured_result") or {}
-        return {"id": d.get("id") or d.get("call_id", "call"), "status": d.get("status"), "received": res.get("received", "unknown"),
-                "recognises_charge": res.get("recognises_charge", "unknown"), "evidence": d.get("evidence") or [],
-                "confidence": (d.get("completion_confidence") or {}).get("score")}
+        self._client = _Calle(**kw)
+        self.calls = self._client.calls

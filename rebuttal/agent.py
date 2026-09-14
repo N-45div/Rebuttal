@@ -6,6 +6,7 @@ still passes the gate.
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -69,6 +70,8 @@ class Rebuttal:
         apply_overrides(load_overrides())  # tighten-only requirements learned from past losses
         self.channel = channel
         self.now = now or datetime.now(timezone.utc)
+        self.merchant = os.environ.get("MERCHANT_NAME", "Ridge Outfitters")
+        self.call_poll_seconds = 3.0
 
     # ---------- gather: three sub-agents, dispatched concurrently ----------
     async def gather(self, dispute_id: str, trace: Trace) -> Bundle:

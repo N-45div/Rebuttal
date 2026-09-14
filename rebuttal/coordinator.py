@@ -11,13 +11,16 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
 from agents import Agent, RunContextWrapper, Runner, function_tool
 from pydantic import BaseModel
 
+from . import call
 from .agent import DISPUTE_FEE_CENTS, Bundle, Rebuttal
 from .detector import detect
 from .gate import Blocked, Effect, Gate, GateState, Trace
@@ -45,7 +48,9 @@ class Ctx:
     outcome: str = "held"
     recovered: int = 0
     ce3_status: str | None = None
-    call: dict[str, Any] | None = None
+    call: Any = None               # call.CallRecord once the confirmation call has ended
+    grounding: Any = None          # call.Grounding: what survived cross-examination
+    call_file: str | None = None   # Stripe file id of the call document
     fault: str | None = None       # eval-suite fault injection: uncited | invent_tracking | wrong_source
 
 
@@ -61,31 +66,77 @@ async def gather_evidence(ctx: RunContextWrapper[Ctx]) -> str:
                        "facts": b.facts, "evidence_present": sorted(e.value for e in c.have)})
 
 
+_SHOW_EVENT = re.compile(r"ring|answer|connect|complet|fail|busy|voicemail|hang", re.I)
+
+
 @function_tool
 def call_customer(ctx: RunContextWrapper[Ctx]) -> str:
-    """Place ONE confirmation call to the customer (two questions: received? recognises the charge?). Only when the email thread is silent. The answer becomes a cited fact."""
-    c = ctx.context; b = c.bundle
-    phone = (b.charge.get("billing_details") or {}).get("phone")
-    if not phone or c.core.calle is None:
+    """Place ONE CALL-E confirmation call to the customer's number on record: a fixed script that says it is an automated call, then asks whether they received the order and whether they recognise the charge. CALL-E's structured answer is cross-examined against the transcript and only answers the customer actually gave become evidence. Takes no arguments: the model never chooses the number or the words."""
+    c = ctx.context
+    b, core = c.bundle, c.core
+    bd = b.charge.get("billing_details") or {}
+    phone = bd.get("phone")
+    if not phone or core.calle is None:
         return json.dumps({"error": "no phone on file or calling disabled"})
     o = b.order or {}
-    masked = phone[:3] + "•••••" + phone[-4:]
-    c.gate(Effect("slack", "chat.postMessage", c.core.channel), lambda: c.core.slack.post(
-        c.core.channel, f"*Dispute {c.dispute_id}* · {b.dispute['reason']} · no email thread from the customer. Calling {masked} to confirm receipt of order {o.get('order_id', '')}…"))
+    args = {"merchant": core.merchant, "order_id": str(o.get("order_id", "")), "items": o.get("items") or "your order",
+            "amount": f"${b.dispute['amount'] / 100:.2f}"}
+    params = {"phone": phone, "customer_phone": bd.get("phone"), "task": call.build_task(**args), "template_args": args,
+              "live": bool(getattr(core.calle, "live", False)), "now": core.now.isoformat()}
+
+    def say(text: str, thread: str | None = None) -> dict[str, Any]:
+        return c.gate(Effect("slack", "chat.postMessage", core.channel), lambda: core.slack.post(core.channel, text, thread_ts=thread))
+
+    head = say(f"*Dispute {c.dispute_id}* \u00b7 {b.dispute['reason']} \u00b7 no email thread from the customer. "
+               f"Calling {call.mask(phone)} with CALL-E to confirm order {args['order_id']}\u2026")
+    thread = (head or {}).get("ts")
     try:
-        call = c.gate(Effect("calle", "calls.create", c.dispute_id, {"phone": phone}),
-                      lambda: c.core.calle.confirm_receipt(phone, o.get("order_id", ""), o.get("items", "")))
+        created = c.gate(Effect("calle", "calls.create", c.dispute_id, params),
+                         lambda: call.place(core.calle, dispute_id=c.dispute_id, phone=phone, run_id=c.trace.run_id, **args))
     except Blocked as e:
+        say(f"Call not placed: {e}", thread)
         return json.dumps({"blocked": str(e)})
-    c.call = call
-    c.gate(Effect("slack", "chat.postMessage", c.core.channel), lambda: c.core.slack.post(
-        c.core.channel, f"Call done: received={call['received']}, recognises charge={call['recognises_charge']}, confidence {call.get('confidence')}. Building the packet…"))
-    quote = "; ".join(call.get("evidence") or [])[:200]
-    b.facts.append({"id": f"calle:{call['id']}", "text": f"Phone call to customer: received={call['received']}, recognises charge={call['recognises_charge']}. \"{quote}\""})
-    c.trace.span("gather", "calle.confirm_receipt", result=call.get("status"), received=call["received"], recognises=call["recognises_charge"])
-    if call["received"] == "yes":
-        c.have.add(Evidence.CUSTOMER_COMMUNICATION)
-    return json.dumps(call)
+    except Exception as e:
+        c.trace.span("effect", "calle.calls.create", target=c.dispute_id, result="ERROR", error=str(e)[:300])
+        say(f"CALL-E did not accept the call: {str(e)[:200]}", thread)
+        return json.dumps({"error": str(e)[:300]})
+
+    call_id = created.get("id") or created.get("call_id", "")
+    c.trace.span("gather", "calle.call_created", result="ok", call_id=call_id, idempotency_key=call.idempotency_key(c.dispute_id))
+
+    def on_event(e: dict[str, Any]) -> None:
+        msg = e.get("message") or e.get("type") or ""
+        c.trace.span("event", "calle.event", type=e.get("type"), message=msg)
+        if _SHOW_EVENT.search(msg):
+            say(f"_CALL-E: {msg}_", thread)
+
+    rec = call.follow(core.calle, call_id, on_event=on_event, interval=core.call_poll_seconds)
+    g = call.ground(rec, core.merchant)
+    c.call, c.grounding = rec, g
+    if rec.turns:
+        say("*Transcript*\n" + "\n".join(
+            f"`{call._clock(t.get('offset_seconds'))}` {'Caller' if call._is_caller(t) else 'Customer'}: {t.get('text', '')}"
+            for t in rec.turns), thread)
+    say("*Checks*\n" + "\n".join(("\u2705 " if x.passed else "\u274c ") + f"{x.name}: {x.detail}"
+                                    + (f" \u201c{x.quote}\u201d" if x.quote else "") for x in g.checks), thread)
+    c.trace.span("gather", "calle.grounding", result=rec.status, call_id=rec.call_id, reported=g.reported, accepted=g.accepted,
+                 usable=g.usable, denied=g.denied, confidence=rec.confidence, duration=rec.duration_seconds, turns=len(rec.turns),
+                 transcript=rec.turns, checks=[asdict(x) for x in g.checks])
+    used = g.usable and "yes" in (g.accepted.get("received"), g.accepted.get("recognises_charge"))
+    verdict = "used as evidence" if used else ("stops the filing" if g.denied else "not used")
+    say(f"Call {rec.status}: received={g.accepted.get('received')}, recognises charge={g.accepted.get('recognises_charge')} "
+        f"(CALL-E reported {g.reported.get('received', 'unknown')}/{g.reported.get('recognises_charge', 'unknown')}, "
+        f"confidence {rec.confidence}) \u2192 {verdict}.")
+    if used:
+        q = {x.name: x.quote for x in g.checks if x.quote}
+        b.facts.append({"id": f"calle:{rec.call_id}", "text": (
+            f"Recorded phone call with the customer ({rec.started_at or 'date on file'}), placed by an automated assistant that disclosed itself. "
+            f"Asked whether they received order {args['order_id']}, the customer said \"{q.get('received_grounded', '')}\". "
+            f"Asked whether they recognise the {args['amount']} charge, the customer said \"{q.get('recognises_charge_grounded', '')}\".")})
+        if g.accepted.get("received") == "yes":
+            c.have.add(Evidence.CUSTOMER_COMMUNICATION)
+    return json.dumps({"call_id": rec.call_id, "status": rec.status, "used_as_evidence": used, "accepted": g.accepted,
+                       "denied": g.denied, "checks": {x.name: x.passed for x in g.checks}})
 
 
 @function_tool
@@ -93,7 +144,7 @@ def get_verdict(ctx: RunContextWrapper[Ctx]) -> str:
     """Ask the policy table for the verdict: SUBMIT, HOLD or CONCEDE, with what is missing. You must follow it."""
     c = ctx.context
     d = decide(c.bundle.dispute["reason"], c.kind, c.have)
-    if c.call and (c.call.get("received") == "no" or c.call.get("recognises_charge") == "no") and d.verdict == Verdict.SUBMIT:
+    if c.grounding is not None and c.grounding.denied and d.verdict == Verdict.SUBMIT:
         d = Decision(Verdict.HOLD, [], "customer said no on the phone; human decides")
     c.decision = d
     c.trace.span("decision", "policy.decide", verdict=d.verdict.value, missing=[m.value for m in d.missing], reason=d.reason,
@@ -143,6 +194,22 @@ def file_evidence(ctx: RunContextWrapper[Ctx]) -> str:
     """Stage the evidence with Stripe, read Stripe's CE3.0 validator, and submit only if qualified. One shot. Requires human approval."""
     c = ctx.context; b = c.bundle
     payload = c.core._evidence_payload(b, c.packet, c.have)
+    call_used = c.call is not None and c.grounding is not None and c.grounding.usable and "yes" in (
+        c.grounding.accepted.get("received"), c.grounding.accepted.get("recognises_charge"))
+    if call_used:
+        o = b.order or {}
+        pdf = call.evidence_pdf(c.call, c.grounding, merchant=c.core.merchant, order_id=str(o.get("order_id", "")),
+                                dispute_id=c.dispute_id, phone=(b.charge.get("billing_details") or {}).get("phone", ""))
+        try:
+            c.call_file = c.gate(Effect("stripe", "files.create", c.dispute_id, {"purpose": "dispute_evidence"}),
+                                 lambda: c.core.stripe.upload_evidence(pdf, f"rebuttal-call-{c.call.call_id}.pdf"))
+        except Blocked as e:
+            return json.dumps({"blocked": str(e)})
+        payload["customer_communication"] = c.call_file
+        out = Path(__file__).resolve().parents[1] / "runs" / "evidence"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / f"{c.trace.run_id}.pdf").write_bytes(pdf)
+        c.trace.span("artifact", "evidence.call_document", target=c.dispute_id, file=c.call_file, bytes=len(pdf))
     try:
         staged = c.gate(Effect("stripe", "disputes.update", c.dispute_id, {"submit": False, "evidence": payload}),
                         lambda: c.core.stripe.update_dispute(c.dispute_id, payload, submit=False))
@@ -209,7 +276,7 @@ def record_outcome(ctx: RunContextWrapper[Ctx]) -> str:
 
 INSTRUCTIONS = """You are Rebuttal's coordinator for one chargeback dispute. Use the tools in this order and stop when done:
 1. gather_evidence.
-2. If the email thread is empty, the dispute reason is product_not_received, unrecognized or fraudulent, and a phone is on file: call_customer (once).
+2. If the email thread is empty, the dispute reason is product_not_received, unrecognized or fraudulent, and a phone is on file: call_customer (once). Whatever it returns (used, not used, blocked or refused), continue with get_verdict.
 3. get_verdict. Follow it exactly.
    - CONCEDE or HOLD: record_outcome, then stop. Do not request approval, do not file.
    - SUBMIT: continue.
@@ -224,9 +291,11 @@ def build(core: Rebuttal, model: str | None = None) -> Agent[Ctx]:
                       tools=[gather_evidence, call_customer, get_verdict, propose_packet, request_approval, file_evidence, notify_customer, record_outcome])
 
 
-async def run(core: Rebuttal, dispute_id: str, model: str | None = None, fault: str | None = None) -> Ctx:
+async def run(core: Rebuttal, dispute_id: str, model: str | None = None, fault: str | None = None,
+              live_call_intent: bool = False, call_allowlist: list[str] | set[str] | None = None) -> Ctx:
     trace = Trace(uuid.uuid4().hex[:10], dispute_id)
-    ctx = Ctx(core=core, trace=trace, gate=Gate(trace, GateState()), dispute_id=dispute_id, fault=fault)
+    state = GateState(live_call_intent=live_call_intent, call_allowlist=set(call_allowlist or []))
+    ctx = Ctx(core=core, trace=trace, gate=Gate(trace, state), dispute_id=dispute_id, fault=fault)
     agent = build(core, model)
     result = await Runner.run(agent, f"Handle dispute {dispute_id}.", context=ctx, max_turns=16)
     tokens = sum(int(getattr(getattr(r, "usage", None), "total_tokens", 0) or 0) for r in (result.raw_responses or []))
