@@ -38,7 +38,7 @@ def seed(args) -> None:
                                     metadata={"order_id": oid, "age_days_override": str(age), **IDENT})
         priors.append(pi.latest_charge)
         print("prior charge", pi.latest_charge, f"({age} days old by metadata)")
-    pi = s.PaymentIntent.create(amount=8900, currency="usd", customer=cust.id, payment_method="pm_card_createCe3EligibleDispute", confirm=True,
+    pi = s.PaymentIntent.create(amount=8900, currency="usd", customer=cust.id, payment_method=("pm_card_createDisputeProductNotReceived" if args.scenario == "call" else "pm_card_createCe3EligibleDispute"), confirm=True,
                                 payment_method_types=["card"], description="Order 1042 - trail shoes",
                                 metadata={"order_id": "1042", **IDENT})
     charge = pi.latest_charge
@@ -50,14 +50,15 @@ def seed(args) -> None:
     sheets = SheetsClient(creds=creds)
     sheets.seed_orders([
         {"order_id": "1042", "items": "Trail shoes x1", "kind": "physical", "ship_date": "2026-08-30", "carrier": "UPS", "ship_to": SHIP_TO,
-         "tracking": "1Z999AA10123456784", "tracking_status": "delivered", "delivered_at": "2026-09-02", "signature_image": True},
+         "tracking": "1Z999AA10123456784", "tracking_status": "in_transit" if args.scenario == "call" else "delivered",
+         "delivered_at": "" if args.scenario == "call" else "2026-09-02", "signature_image": args.scenario != "call"},
         {"order_id": "0910", "items": "Running socks x3", "kind": "physical", "ship_date": "2026-04-14", "carrier": "UPS", "ship_to": SHIP_TO,
          "tracking": "1Z999AA10123456701", "tracking_status": "delivered", "delivered_at": "2026-04-17", "signature_image": False},
         {"order_id": "0872", "items": "Rain shell x1", "kind": "physical", "ship_date": "2026-01-16", "carrier": "UPS", "ship_to": SHIP_TO,
          "tracking": "1Z999AA10123456655", "tracking_status": "delivered", "delivered_at": "2026-01-19", "signature_image": True},
     ])
     print("ledger", sheets.url)
-    if not args.silent_thread:
+    if not args.silent_thread and args.scenario != "call":
         gm = GmailClient(creds=creds)
         gm.send(CUSTOMER_EMAIL, "Re: Order 1042", "Got the shoes, thanks! Fit is perfect. - Jordan")
         print("email thread seeded to", CUSTOMER_EMAIL)
@@ -96,6 +97,8 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sd = sub.add_parser("seed")
     sd.add_argument("--silent-thread", action="store_true", help="seed no email thread, so the agent calls the customer")
+    sd.add_argument("--scenario", choices=["ce3", "call"], default="ce3",
+                    help="ce3: fraud dispute with CE3.0 priors; call: product-not-received, parcel still in transit, no email, so only the call can win it")
     r = sub.add_parser("run")
     r.add_argument("--dispute")
     r.add_argument("--live-calls", action="store_true", help="operator intent for this run: allow real CALL-E calls to numbers in REBUTTAL_CALL_ALLOWLIST")
