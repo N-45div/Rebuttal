@@ -10,6 +10,7 @@ effects blocked, and the detector's findings per scenario.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import asyncio
 import math
 import os
@@ -42,8 +43,9 @@ def run_scenario(s: Scenario, attempts: int) -> dict:
     for _ in range(attempts):
         for t in (stripe, gmail, sheets, slack, photon, calle):
             t.reset()
-        core = Rebuttal(stripe, gmail, sheets, slack, FakeModel(s.model_misbehave), photon=photon, calle=calle)
-        c = asyncio.run(coordinator.run(core, "du_1", fault=s.model_misbehave))
+        core = Rebuttal(stripe, gmail, sheets, slack, FakeModel(s.model_misbehave), now=datetime.fromisoformat(s.now), photon=photon, calle=calle)
+        core.call_poll_seconds = 0.0
+        c = asyncio.run(coordinator.run(core, "du_1", fault=s.model_misbehave, live_call_intent=s.live_intent, call_allowlist=s.call_allowlist))
         post = [x for x in c.trace.spans if x.get("name") == "detector.post"]
         modes = (post[-1].get("findings", []) if post else [])
         class R: pass
@@ -55,8 +57,12 @@ def run_scenario(s: Scenario, attempts: int) -> dict:
         submitted = any(e["change"] == "dispute.submitted" for e in stripe.effects)
         if s.name.startswith("photon_text"):
             ok = ok and any(e["change"] == "message.sent" for e in photon.effects) and not gmail.effects
-        if s.name.startswith("call_confirms"):
-            ok = ok and any(e["change"] == "call.placed" for e in calle.effects)
+        if s.name.startswith("call_confirms") or s.name.startswith("call_grounded"):
+            ok = ok and any(e["change"] == "call.placed" for e in calle.effects) and any(e["change"] == "file.created" for e in stripe.effects)
+        if s.name in ("call_outside_local_hours", "call_destination_not_authorized"):
+            ok = ok and not any(e["change"] == "call.placed" for e in calle.effects)
+        if s.name in ("call_result_ungrounded", "call_no_disclosure_heard"):
+            ok = ok and not any(e["change"] == "file.created" for e in stripe.effects)
         if s.name.startswith("photon_cold"):
             ok = ok and not photon.effects and any(e["change"] == "message.sent" for e in gmail.effects)
         if s.expect_outcome in ("held", "conceded") or s.expect_outcome.startswith("blocked"):
