@@ -122,8 +122,8 @@ def call_customer(ctx: RunContextWrapper[Ctx]) -> str:
     c.trace.span("gather", "calle.grounding", result=rec.status, call_id=rec.call_id, reported=g.reported, accepted=g.accepted,
                  usable=g.usable, denied=g.denied, confidence=rec.confidence, duration=rec.duration_seconds, turns=len(rec.turns),
                  transcript=rec.turns, checks=[asdict(x) for x in g.checks])
-    used = g.usable and "yes" in (g.accepted.get("received"), g.accepted.get("recognises_charge"))
-    verdict = "used as evidence" if used else ("stops the filing" if g.denied else "not used")
+    used = g.usable and not g.denied and "yes" in (g.accepted.get("received"), g.accepted.get("recognises_charge"))
+    verdict = "stops the filing" if g.denied else ("used as evidence" if used else "not used")
     say(f"Call {rec.status}: received={g.accepted.get('received')}, recognises charge={g.accepted.get('recognises_charge')} "
         f"(CALL-E reported {g.reported.get('received', 'unknown')}/{g.reported.get('recognises_charge', 'unknown')}, "
         f"confidence {rec.confidence}) \u2192 {verdict}.")
@@ -195,7 +195,7 @@ def file_evidence(ctx: RunContextWrapper[Ctx]) -> str:
     """Stage the evidence with Stripe, read Stripe's CE3.0 validator, and submit only if qualified. One shot. Requires human approval."""
     c = ctx.context; b = c.bundle
     payload = c.core._evidence_payload(b, c.packet, c.have)
-    call_used = c.call is not None and c.grounding is not None and c.grounding.usable and "yes" in (
+    call_used = c.call is not None and c.grounding is not None and c.grounding.usable and not c.grounding.denied and "yes" in (
         c.grounding.accepted.get("received"), c.grounding.accepted.get("recognises_charge"))
     if call_used:
         o = b.order or {}

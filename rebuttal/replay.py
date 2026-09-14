@@ -57,9 +57,11 @@ def _offsets(events: list[dict[str, Any]], started: str | None) -> list[dict[str
 
 
 def _decision(usable: bool, accepted: dict[str, Any], denied: bool) -> str:
+    if denied:
+        return "stops the filing"
     if usable and "yes" in (accepted.get("received"), accepted.get("recognises_charge")):
         return "used as evidence"
-    return "stops the filing" if denied else "not used"
+    return "not used"
 
 
 def from_record(rec: call.CallRecord, g: call.Grounding, *, title: str, source: str, dispute: dict[str, Any],
