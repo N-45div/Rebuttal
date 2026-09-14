@@ -80,7 +80,8 @@ def run(args) -> None:
     core = Rebuttal(st, GmailClient(creds=creds), SheetsClient(creds=creds), SlackClient(), AstraModel(), photon=photon, calle=calle)
     os.environ.setdefault("REBUTTAL_VERBOSE", "1")
     print(f"rebuttal - dispute {dispute_id} - coordinator gpt-6-astra - approve in Slack {core.slack.channel}", flush=True)
-    c = asyncio.run(coordinator.run(core, dispute_id))
+    allow = [x.strip() for x in os.environ.get("REBUTTAL_CALL_ALLOWLIST", "").split(",") if x.strip()]
+    c = asyncio.run(coordinator.run(core, dispute_id, live_call_intent=args.live_calls, call_allowlist=allow))
     v = c.decision.verdict.value if c.decision else "none"
     amt = c.bundle.dispute["amount"] if c.bundle else 0
     print(f"verdict {v} -> {c.outcome} | ce3 {c.ce3_status} | ${amt/100:.2f} at stake, ${c.recovered/100:.2f} recovered | {c.gate.blocked} forbidden effects blocked", flush=True)
@@ -97,6 +98,7 @@ def main() -> int:
     sd.add_argument("--silent-thread", action="store_true", help="seed no email thread, so the agent calls the customer")
     r = sub.add_parser("run")
     r.add_argument("--dispute")
+    r.add_argument("--live-calls", action="store_true", help="operator intent for this run: allow real CALL-E calls to numbers in REBUTTAL_CALL_ALLOWLIST")
     args = ap.parse_args()
     {"seed": seed, "run": run}[args.cmd](args)
     return 0
