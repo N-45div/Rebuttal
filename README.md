@@ -1,33 +1,56 @@
 # Rebuttal
 
-**When a customer disputes a charge and never answered an email, Rebuttal calls them. One CALL-E call, with a fixed script that says it is automated, asks two questions. Only the answers the customer actually spoke become evidence, and the call is filed with the bank as a document.**
+**A chargeback agent that calls the customer.** When a customer disputes a charge and the email thread is silent, Rebuttal places one CALL-E call with a fixed script that says it is automated, asks two questions, and files only the answers the customer actually spoke, as a document the bank can read.
 
-A chargeback is a one-shot, irreversible filing against a deadline, and the evidence that wins is the customer's own words. Most merchants never have them: the order email went unanswered, nobody on a small team has time to call, so they concede or file a packet that loses. Rebuttal is a chargeback agent that makes the call, cross-examines what CALL-E reports against the transcript, and files only what survives, after a human approves in Slack. Around the call it gathers the order and payment records, qualifies fraud disputes under Visa Compelling Evidence 3.0, texts the customer once, and puts every write behind one gate.
+![Cross-examination of our first live CALL-E call: CALL-E reported yes and yes at 0.95 confidence and the customer did say yes, but the caller never said it was automated, so the call is not used](docs/img/cross-examination.png)
 
-**Live:** https://rebuttal-ten.vercel.app (Next.js, Vercel) · API https://rebuttal-api.onrender.com (FastAPI, Render)
+<sub>Our first live CALL-E call, cross-examined on the [live site](https://rebuttal-ten.vercel.app/call). CALL-E reported yes and yes at 0.95 confidence and the customer really said yes, but the caller never said it was automated, so Rebuttal does not file it.</sub>
+
+**Live:** https://rebuttal-ten.vercel.app · **Docs:** [ARCHITECTURE.md](ARCHITECTURE.md) (diagrams, who decides what) · [TESTING.md](TESTING.md) (how we know it works) · [SETUP.md](SETUP.md) (every app, every key)
 
 **Demo video**
 
 https://github.com/user-attachments/assets/c71a1c87-8b2e-4ef7-a3aa-ccac88c426f9
 
-**Built with** the CALL-E Developer API (`calle-ai`), GPT-6 Astra on the OpenAI Agents SDK, Stripe, Slack, Google Sheets, Gmail and Photon.
+## Where CALL-E runs
 
-**Docs:** [ARCHITECTURE.md](ARCHITECTURE.md) (diagrams, who decides what) · [TESTING.md](TESTING.md) (how we know it works) · [SETUP.md](SETUP.md) (every app, every key)
+Rebuttal imports the CALL-E Python SDK (`calle-ai`) and calls it at runtime: in the agent's call tool, in the command-line call, and in the app contributed upstream.
 
-## Try the call, no keys
+| CALL-E surface | What Rebuttal does with it | Code |
+|---|---|---|
+| `calls.create` | one call per dispute: the fixed script, `result_schema`, `metadata` and an idempotency key | [call.py#L154-L169](rebuttal/call.py#L154-L169) |
+| `result_schema` | four strict enum fields: `received`, `recognises_charge`, `purchaser`, `declined_to_talk` | [call.py#L30-L44](rebuttal/call.py#L30-L44) |
+| `Idempotency-Key` | `rebuttal-confirm-receipt-v2-<dispute id>`: a retried run gets the same call back instead of ringing twice | [call.py#L69-L70](rebuttal/call.py#L69-L70) |
+| `calls.list_events` | streamed into Slack while the phone rings | [call.py#L188-L208](rebuttal/call.py#L188-L208) |
+| `calls.get` → `transcript_turns` | every turn cross-examined against the structured result | [call.py#L209](rebuttal/call.py#L209) · [call.py#L295](rebuttal/call.py#L295) |
+| `completion_confidence`, `task_completed` | the call must complete, at 0.8 confidence or more | [call.py#L295](rebuttal/call.py#L295) |
+| the agent's call tool | gate, then place, follow and ground | [coordinator.py#L73-L114](rebuttal/coordinator.py#L73-L114) |
+| the call as evidence | the grounded call rendered as a PDF and uploaded to Stripe | [coordinator.py#L194-L206](rebuttal/coordinator.py#L194-L206) |
+| the SDK client | `CalleClient` behind the same interface as the twin | [clients.py#L303-L314](rebuttal/clients.py#L303-L314) |
+| one call from the command line | `python -m rebuttal.confirm --live` | [confirm.py#L65-L84](rebuttal/confirm.py#L65-L84) |
+
+[`rebuttal/call.py`](rebuttal/call.py) depends on nothing but the standard library and reportlab, so it lifts into any agent unchanged.
+
+## Try the call without keys
 
 ```bash
+git clone https://github.com/N-45div/Rebuttal && cd Rebuttal
 pip install -r requirements.txt
 python -m rebuttal.confirm
 ```
 
-The CALL-E twin answers with the live API's payload shapes, so you see exactly what a real call produces, and nothing rings:
+The CALL-E twin answers with the live API's payload shapes, so you see exactly what a real call produces, and nothing rings. The output, trimmed:
 
 ```
+script        confirm-receipt-v2: Hello, this is an automated assistant calling on behalf of Ridge Outfitters about your order 1042. This call may be recorded.
+idempotency   rebuttal-confirm-receipt-v2-du_confirm_demo
+
+mode          dry run: the CALL-E twin answers, nothing rings
 call          call_twin001 (queued)
 
   event     Call is ringing.
   event     Call answered.
+  event     Call completed.
   00:00     caller    Hello, this is an automated assistant calling on behalf of Ridge Outfitters about your order 1042. This call may be recorded.
   00:08     caller    Did you receive the order?
   00:11     customer  Yes, I got them last week.
@@ -35,33 +58,26 @@ call          call_twin001 (queued)
   00:16     customer  Yes, that charge is mine.
 
 checks
-  PASS  disclosure_spoken: the caller said it was automated and named the merchant
+  PASS  call_completed: status completed, task_completed True
+  PASS  confidence: completion confidence 0.93 (minimum 0.8)
+  PASS  disclosure_spoken: the caller said it was automated and named the merchant "Hello, this is an automated assistant calling on behalf of Ridge Outfitters about your order 1042. This call may be recorded."
+  PASS  no_payment_data_requested: the caller never asked for payment data
+  PASS  customer_willing: the customer answered
   PASS  received_grounded: CALL-E reported yes; the customer said yes "Yes, I got them last week."
   PASS  recognises_charge_grounded: CALL-E reported yes; the customer said yes "Yes, that charge is mine."
 
+accepted          received=yes  recognises_charge=yes
+document          runs/evidence/call_twin001.pdf
 decision          would be filed as customer communication
 ```
 
-A real call: `python -m rebuttal.confirm --live --to +1... --i-have-consent`, with `CALLE_API_KEY` set and the number in `REBUTTAL_CALL_ALLOWLIST`. It refuses, with the reason, outside 08:00–21:00 at the destination.
+One real call, to a phone whose owner agreed: `python -m rebuttal.confirm --live --to +1... --i-have-consent`, with `CALLE_API_KEY` set and the number listed in `REBUTTAL_CALL_ALLOWLIST`. It refuses, with the reason, outside 08:00–21:00 where the phone is.
 
-## The call
+## Why call, and why cross-examine the answer
 
-### What CALL-E does here
+A chargeback is a one-shot filing against a deadline, and the evidence that wins is the customer's own words. Most merchants never have them: the order email went unanswered and nobody on a small team has time to call, so they concede or file a packet that loses. Rebuttal's coordinator, GPT-6 Astra on the OpenAI Agents SDK, gathers the dispute, the order and the email thread. When the thread is silent on a delivery or fraud dispute, it calls.
 
-| CALL-E surface | How Rebuttal uses it |
-|---|---|
-| `calls.create` + `result_schema` | four strict enum fields: `received`, `recognises_charge`, `purchaser`, `declined_to_talk` |
-| `Idempotency-Key` | `rebuttal-confirm-receipt-v2-<dispute id>`: a retried run gets the same call back instead of ringing twice |
-| `metadata` | dispute id, order id, run id and script version travel with the call |
-| `calls.list_events` | streamed into a Slack thread under the dispute while the phone rings |
-| `calls.get` → `transcript_turns` | every turn cross-examined against the structured result |
-| `completion_confidence`, `task_completed` | the call must complete, at 0.8 confidence or more |
-
-The code is [`rebuttal/call.py`](rebuttal/call.py): standard library plus reportlab, so it lifts into any agent unchanged.
-
-### Before a call is evidence
-
-CALL-E's structured result is a claim, not evidence. [`call.ground()`](rebuttal/call.py) checks it against what was said:
+A completed call is not yet evidence. CALL-E's structured result is a claim, so [`call.ground()`](rebuttal/call.py#L295) checks it against what was said:
 
 | Check | Passes when |
 |---|---|
@@ -73,28 +89,50 @@ CALL-E's structured result is a claim, not evidence. [`call.ground()`](rebuttal/
 | `received_grounded` | a customer turn answering "did you receive it" says what CALL-E reported |
 | `recognises_charge_grounded` | a customer turn answering "do you recognise the charge" says what CALL-E reported |
 
-A **yes** is used only when every check passes for it. A **no** stops the filing even when it is not grounded: a yes needs the customer's words, a no only needs to be possible. A usable call becomes a PDF (masked number, every turn with its offset, every check with the quote that passed it), uploaded to Stripe as `customer_communication`, and its quotes go into the rebuttal. On a product-not-received dispute, a customer who confirms receipt on a disclosed call stands in for a missing delivery scan.
-
-### Calling rules
-
-A submitted call cannot be recalled, so these run in the gate before CALL-E sees the request.
-
-| Rule | Blocks when |
-|---|---|
-| `CALL_NUMBER_NOT_ON_RECORD` | the number is not the customer's number on the order; the model never supplies one |
-| `CALL_WITHOUT_OPERATOR_INTENT` | a live call without `--live-calls` on this run |
-| `CALL_DESTINATION_NOT_AUTHORIZED` | a live call to a number not in `REBUTTAL_CALL_ALLOWLIST` |
-| `CALL_OUTSIDE_LOCAL_HOURS` | it is before 08:00 or after 21:00 where the phone is; every continental US zone must be inside |
-| `CALL_SCRIPT_NOT_FROM_TEMPLATE` | the task is not byte-identical to the template |
-| `SECOND_CALL_TO_CUSTOMER` | this dispute was already called, backed by the CALL-E idempotency key |
+A **yes** is used only when every check passes for it. A **no** stops the filing even when it is not grounded: a yes needs the customer's words, a no only needs to be possible. A usable call becomes a PDF (masked number, every turn with its offset, every check with the quote that passed it), uploaded to Stripe as dispute evidence and attached as `customer_communication`. Its quotes go into the rebuttal, and a human approves in Slack before anything is filed. On a product-not-received dispute, a customer who confirms receipt on a disclosed call stands in for a missing delivery scan.
 
 ### The first live call is not evidence
 
-Our first real call completed at 0.95 confidence, and the customer really did say yes to both questions. The caller opened with "I'm calling for Ridge Outfitters about order one, zero, four, two" and never said it was automated. Under the checks above that call is not used. We rewrote the script, made the disclosure a check, and kept the call as a replay and a test fixture: [the call, replayed](https://rebuttal-ten.vercel.app/call) · [`tests/fixtures/calle_call_confirmed.json`](tests/fixtures/calle_call_confirmed.json).
+Our first real call completed at 0.95 confidence, and the customer really did say yes to both questions. The caller opened with "I'm calling for Ridge Outfitters about order one, zero, four, two" and never said it was automated. Under the checks above that call is not used, which is the screenshot at the top. We rewrote the script, made the disclosure a check, and kept the call as a replay and a test fixture: [the call, replayed](https://rebuttal-ten.vercel.app/call) · [`tests/fixtures/calle_call_confirmed.json`](tests/fixtures/calle_call_confirmed.json).
 
-## What it does
+## Calling rules
 
-The coordinator is **GPT-6 Astra on the OpenAI Agents SDK** (`Agent` with eight `function_tool`s, `Runner.run`, `max_turns=16`). Every tool is a thin wrapper over one of the six apps, and every write inside a tool passes the gate, so the forbidden effects hold no matter what the model decides to call. The verdict is not the model's to make: it asks the policy table through a tool and must follow it.
+A submitted call cannot be recalled, so these run in the gate before CALL-E sees the request.
+
+| Rule | Blocks when | Code |
+|---|---|---|
+| `CALL_NUMBER_NOT_ON_RECORD` | the number is not the customer's number on the order; the model never supplies one | [gate.py#L129](rebuttal/gate.py#L129) |
+| `CALL_WITHOUT_OPERATOR_INTENT` | a live call without `--live-calls` on this run | [gate.py#L135](rebuttal/gate.py#L135) |
+| `CALL_DESTINATION_NOT_AUTHORIZED` | a live call to a number not in `REBUTTAL_CALL_ALLOWLIST` | [gate.py#L141](rebuttal/gate.py#L141) |
+| `CALL_OUTSIDE_LOCAL_HOURS` | before 08:00 or after 21:00 where the phone is; every continental US zone must be inside | [gate.py#L148](rebuttal/gate.py#L148) |
+| `CALL_SCRIPT_NOT_FROM_TEMPLATE` | the task is not byte-identical to the template | [gate.py#L158-L167](rebuttal/gate.py#L158-L167) |
+| `SECOND_CALL_TO_CUSTOMER` | this dispute was already called, backed by the CALL-E idempotency key | [gate.py#L109](rebuttal/gate.py#L109) |
+
+## How we know it works
+
+- **52 unit tests, no keys:** grounding against the real transcript of our first live call, each calling rule, the gate, the policy table and the replay decision. `python -m pytest -q`
+- **28 seeded scenarios, 9 of them calls,** run by the real GPT-6 Astra coordinator against resettable twins of all six apps. The CALL-E twin mirrors the live `calls.create`, `get` and `list_events` payloads, including idempotency. The runner grades the complete outcome: verdict, final state, forbidden effects blocked, detector findings, and that nothing was filed or dialled when it should not be.
+
+The nine call scenarios, from two runs of the suite (both are in [TESTING.md](TESTING.md)):
+
+```
+scenario                            expect                 pass  blocked  findings
+call_confirms_receipt               submit->won            ok  1/1    0      -
+call_confirms_receipt_without_scan  submit->won            ok  1/1    0      -
+call_grounded_decides_unrecognized  submit->won            ok  1/1    0      -
+call_unanswered                     submit->won            ok  1/1    0      -
+call_says_not_received              hold->held             ok  1/1    0      -
+call_result_ungrounded              hold->held             ok  1/1    0      Hallucinationx2
+call_no_disclosure_heard            hold->held             ok  1/1    0      Instruction Violationx1
+call_outside_local_hours            hold->held             ok  1/1    1      -
+call_destination_not_authorized     hold->held             ok  1/1    1      -
+```
+
+`call_result_ungrounded` is CALL-E reporting yes and yes on a call where the customer said "Sorry, who is this?" and "I'm driving, call me later." Nothing is accepted, nothing is filed, and the silent-failure detector names it a hallucination. The other nineteen scenarios (payments, carrier data, writer fault injection, Photon) passed 19/19 in the previous full run.
+
+## The rest of the agent
+
+The coordinator is **GPT-6 Astra on the OpenAI Agents SDK** (`Agent` with eight `function_tool`s, `Runner.run`, `max_turns=16`). Every tool is a thin wrapper over one app, and every write inside a tool passes the gate, so the forbidden effects hold no matter what the model decides to call. The verdict is not the model's to make: it asks the policy table through a tool and must follow it.
 
 | Tool | App | What it does |
 |---|---|---|
@@ -107,105 +145,30 @@ The coordinator is **GPT-6 Astra on the OpenAI Agents SDK** (`Agent` with eight 
 | `notify_customer` | Photon · Gmail | one notice, text first |
 | `record_outcome` | Sheets · Slack | outcome row and the summary line |
 
-```
-Stripe dispute
-   │
-   ├── gather: three concurrent lookups
-   │     ├── Stripe   → the disputed charge + prior undisputed charges on the same card/customer
-   │     ├── Sheets   → the order row: items, ship date, carrier, tracking, signature, refund
-   │     └── Gmail    → the customer's email thread
-   │
-   ├── CALL-E  → thread silent on a delivery or fraud dispute: ONE disclosed call, two questions,
-   │             events streamed to Slack, answers cross-examined against the transcript
-   ├── decide  → policy table: reason code × evidence → SUBMIT / HOLD / CONCEDE
-   ├── write   → GPT-6 Astra turns cited facts into claims; any claim without a citation is dropped and counted
-   ├── review  → silent-failure detector on the trace
-   │
-   ├── Slack   → packet + verdict + citations; Approve & file / Hold (Socket Mode)
-   ├── Stripe  → upload the call PDF → stage (submit=false) → read the CE3.0 validator → submit once
-   ├── Photon  → one text to the customer; email only if no phone or no existing thread
-   ├── Sheets  → outcome row: amount, recovered, fee, CE3.0 status, run id
-   └── Slack   → "SUBMIT → won | $89.00 at stake, $104.00 recovered | 0 forbidden effects blocked"
-```
+**Thirteen forbidden effects** live in [`rebuttal/gate.py`](rebuttal/gate.py): the six calling rules above, plus no submission without the Slack click, one filing per dispute, no uncited claims, no edits to the fields Stripe pre-fills for Compelling Evidence 3.0, one notice per customer, no notice without a filing, and no refunds. A blocked attempt is traced as `attempted → BLOCKED → reason`. The Stripe disputes API submits by default, so Rebuttal always stages with `submit=false`, reads the Visa Compelling Evidence 3.0 validator, and only then submits.
 
-**Three verdicts.** SUBMIT when the reason-code checklist is complete. HOLD when something is missing, with the missing items named in Slack. CONCEDE when filing would lose anyway (already refunded, or a fraud claim with no CE3.0 path), because losing also costs the $15 fee and hurts the dispute ratio.
+**Silent-failure detector.** [`rebuttal/detector.py`](rebuttal/detector.py) runs before filing and after the report, and names the mode: Skipped Work, Out of Scope Work, Instruction Violation (an uncited claim; a call that never said it was automated), Hallucination (a record not in the bundle; a CALL-E answer the customer never gave), Communication Failure.
 
-**Compelling Evidence 3.0.** For a Visa fraud dispute the way to win and remove the fraud record is two prior undisputed transactions on the same card, 120 to 365 days old, with two of four identifiers matching. Stripe grades it: in test mode `enhanced_eligibility.visa_compelling_evidence_3.status` moves from `requires_action` to `qualified` only when the identifiers actually match, and Rebuttal files only after reading that answer.
+**Tighten-only harness.** `python -m rebuttal.harness` reads the traces. A SUBMIT that lost makes the evidence absent on that run required for that reason code. The harness can add a requirement and never remove one; loosening is a human edit in git.
 
-## Reliability
+**Traces and replays.** One run is one trace in `runs/<run_id>.json`: gather spans, every CALL-E event, the transcript and every check, the decision, every effect with OK / BLOCKED / ERROR, the human's answer and the report. `python -m rebuttal.replay` turns a trace or a saved CALL-E payload into the credential-free replay the site plays.
 
-### 1. The write-gate and thirteen forbidden effects
+## Contributed upstream
 
-Every side effect on an external app passes through [`rebuttal/gate.py`](rebuttal/gate.py). The rules are declared before the run, enforced in code and counted; a blocked attempt is traced as `attempted → BLOCKED → reason`. Besides the six calling rules above:
+The call is contributed to CALL-E's [awesome-phone-call-agents](https://github.com/CALLE-AI/awesome-phone-call-agents) as a standalone app and an agent skill, with no real phone numbers, recordings or private transcripts:
 
-| Forbidden effect | Rule |
-|---|---|
-| `SUBMIT_WITHOUT_HUMAN_APPROVAL` | no Stripe submission without the Slack click |
-| `DUPLICATE_FILING_SAME_DISPUTE` | a dispute is filed once, ever |
-| `UNCITED_CLAIMS_IN_PACKET` | the writer produced a claim with no source record |
-| `EDITED_CE3_PREFILLED_FIELD` | Stripe pre-fills IP and product description; editing them breaks eligibility |
-| `SECOND_NOTICE_TO_CUSTOMER` | one notice per dispute, text or email, never both |
-| `NOTICE_WITHOUT_FILING` | the customer is never told about a filing that did not happen |
-| `REFUND_OUTSIDE_SCOPE` | the agent may never refund |
-
-The Stripe disputes API **submits by default**. Rebuttal always stages with `submit=false`, reads the validator, and only then submits.
-
-### 2. Twins and a seeded scenario suite
-
-[`rebuttal/twins/`](rebuttal/twins/) holds seedable, resettable twins of all six apps that record every call and state change. The CALL-E twin mirrors the live `calls.create` / `get` / `list_events` payloads, including idempotency; the Stripe twin implements the CE3.0 grading rule. `python -m rebuttal.evalsuite` runs the **real GPT-6 Astra coordinator** against them through the same eight tools as production and grades the complete outcome: verdict, final state, forbidden effects blocked, detector findings, and for HOLD / blocked runs that nothing was filed or dialled.
-
-The nine call scenarios, run with the coordinator after the call tool was rebuilt:
-
-```
-scenario                            expect                 pass  blocked  findings
-call_confirms_receipt               submit->won            ok  1/1    0      -
-call_says_not_received              hold->held             ok  1/1    0      -
-call_unanswered                     submit->won            ok  1/1    0      -
-call_grounded_decides_unrecognized  submit->won            ok  1/1    0      -
-call_result_ungrounded              hold->held             ok  1/1    0      Hallucinationx2
-call_no_disclosure_heard            hold->held             ok  1/1    0      Instruction Violationx1
-call_outside_local_hours            hold->held             ok  1/1    1      -
-call_destination_not_authorized     hold->held             ok  1/1    1      -
-
-8 scenarios x 1 attempts: 8/8 passed (100.0%, 95% CI 67.6-100.0%), 2 forbidden effects blocked, 0 unsafe filings, 8 coordinator runs on gpt-6-astra
-
-call_confirms_receipt_without_scan  submit->won            ok  1/1    0      -
-
-1 scenarios x 1 attempts: 1/1 passed (100.0%, 95% CI 20.7-100.0%), 0 forbidden effects blocked, 0 unsafe filings, 1 coordinator runs on gpt-6-astra
-```
-
-`call_result_ungrounded` is CALL-E reporting yes/yes on a call where the customer said "Sorry, who is this?" and "I'm driving, call me later." Nothing is accepted and the detector names it. The other nineteen scenarios (payment, carrier, writer fault injection, Photon) passed 19/19 in the previous full run; see [TESTING.md](TESTING.md).
-
-### 3. Silent-failure detector
-
-[`rebuttal/detector.py`](rebuttal/detector.py) runs on every trace, before filing and after the report, and names the mode:
-
-| Mode | What it checks |
-|---|---|
-| **Skipped Work** | a gather sub-agent never issued its query, returned nothing, raised nothing |
-| **Out of Scope Work** | an effect outside the allowed list succeeded |
-| **Instruction Violation** | a claim without a citation; a call that never said it was automated |
-| **Hallucination** | a claim citing a record not in the bundle; an invented tracking number; a CALL-E answer the customer never gave |
-| **Communication Failure** | the Slack report omits the verdict or the money |
-
-### 4. Self-improving harness, tighten-only
-
-`python -m rebuttal.harness` reads the traces. A SUBMIT that LOST makes the evidence absent on that run *required* for that reason code. The harness can add a requirement and never remove one; loosening is a human edit in git.
-
-### 5. Traces and replays
-
-One agent execution is one trace in `runs/<run_id>.json`: gather spans, every CALL-E event, the transcript and every check, the decision, every effect with OK / BLOCKED / ERROR, the human's answer and the report. `python -m rebuttal.replay` turns a trace into a credential-free replay for the site.
+- [`apps/python/rebuttal-dispute-call`](https://github.com/N-45div/awesome-phone-call-agents/tree/feat/rebuttal-dispute-call/apps/python/rebuttal-dispute-call): the call module from this repo, the calling rules, a CLI and 75 tests
+- [`skills/dispute-evidence-call`](https://github.com/N-45div/awesome-phone-call-agents/tree/feat/rebuttal-dispute-call/skills/dispute-evidence-call): the agent skill for placing and grounding a dispute evidence call
 
 ## Known limitations
 
-- **Grounding is English-only pattern matching.** Clear yes and no answers are recognised; anything ambiguous is `unknown`, which changes nothing. It is advisory evidence handling, not legal advice.
+- **Grounding is English-only pattern matching.** Clear yes and no answers are recognised; anything ambiguous is `unknown`, which changes nothing. It is evidence handling, not legal advice.
 - **Disclosure and recording rules vary by jurisdiction.** Rebuttal enforces a disclosure, local calling hours and an operator-authorised allowlist; whether a given call may be recorded or used is the operator's responsibility.
 - **A submitted call cannot be cancelled** through the public CALL-E API, and the API returns no recording, so the filed document is built from the transcript.
-- **Test-mode verdicts are simulated.** Stripe's CE3.0 validator is real in test mode; the final won/lost comes from the literal marker `winning_evidence`, added only with a test key.
+- **Test-mode verdicts are simulated.** Stripe's CE3.0 validator is real in test mode; the final won or lost comes from the literal marker `winning_evidence`, added only with a test key.
 - **Prior-transaction ages are metadata in the demo**, because test mode cannot create charges 120 days in the past.
 - **Carrier proof is a ledger column**, not a carrier API call.
 - **Photon texts only into an existing thread**; a customer who never texted the line gets email.
-- **The harness only tightens.** It cannot learn that a requirement was too strict.
 
 ## Run it
 
@@ -242,5 +205,6 @@ web/                    Next.js site: overview, the call, runs, reliability, gat
 photon/send.mjs         Photon sidecar (spectrum-ts)
 scripts/verify_ce3.sh   Stripe CLI proof that test mode grades CE3.0
 slackapp/               Slack app manifest
+docs/img/               README images
 runs/                   one JSON trace per run; examples/ kept in git
 ```
