@@ -7,6 +7,7 @@ A blocked attempt is recorded, never silently dropped: the trace shows
 from __future__ import annotations
 
 import json
+from datetime import datetime
 import os
 import time
 from dataclasses import dataclass, field
@@ -61,6 +62,8 @@ class GateState:
     acted: set[str] = field(default_factory=set)          # dispute ids already filed
     uncited_claims: int = 0                                # set by the packet builder before submit
     called: set[str] = field(default_factory=set)         # dispute ids the customer was already called about
+    live_call_intent: bool = False                         # the operator asked for real calls on this run
+    call_allowlist: set[str] = field(default_factory=set)  # E.164 destinations the operator authorised
 
 
 # ---- Forbidden effects, declared up front. Names appear verbatim in the README. ----
@@ -117,6 +120,53 @@ def no_notice_without_filing(e: Effect, s: GateState) -> str | None:
     return None
 
 
+# ---- Calling rules. A call cannot be recalled once CALL-E accepts it, so these run before the create. ----
+
+def _is_call(e: Effect) -> bool:
+    return e.app == "calle" and e.action == "calls.create"
+
+
+def call_number_on_record(e: Effect, s: GateState) -> str | None:
+    if _is_call(e) and (not e.params.get("phone") or e.params.get("phone") != e.params.get("customer_phone")):
+        return "CALL_NUMBER_NOT_ON_RECORD"
+    return None
+
+
+def call_operator_intent(e: Effect, s: GateState) -> str | None:
+    if _is_call(e) and e.params.get("live") and not s.live_call_intent:
+        return "CALL_WITHOUT_OPERATOR_INTENT"
+    return None
+
+
+def call_destination_authorized(e: Effect, s: GateState) -> str | None:
+    from .call import authorized
+    if _is_call(e) and e.params.get("live") and not authorized(e.params.get("phone", ""), s.call_allowlist):
+        return "CALL_DESTINATION_NOT_AUTHORIZED"
+    return None
+
+
+def call_local_hours(e: Effect, s: GateState) -> str | None:
+    from .call import local_hours_ok
+    if _is_call(e):
+        now = e.params.get("now")
+        ok, _ = local_hours_ok(e.params.get("phone", ""), datetime.fromisoformat(now) if isinstance(now, str) else now)
+        if not ok:
+            return "CALL_OUTSIDE_LOCAL_HOURS"
+    return None
+
+
+def call_script_from_template(e: Effect, s: GateState) -> str | None:
+    from .call import build_task
+    if _is_call(e):
+        try:
+            expected = build_task(**(e.params.get("template_args") or {}))
+        except TypeError:
+            return "CALL_SCRIPT_NOT_FROM_TEMPLATE"
+        if e.params.get("task") != expected:
+            return "CALL_SCRIPT_NOT_FROM_TEMPLATE"
+    return None
+
+
 def no_refunds(e: Effect, s: GateState) -> str | None:
     if e.app == "stripe" and e.action.startswith("refunds."):
         return "REFUND_OUTSIDE_SCOPE"
@@ -130,6 +180,11 @@ FORBIDDEN: list[Rule] = [
     no_ce3_prefilled_edits,
     one_customer_notice_per_dispute,
     one_call_per_dispute,
+    call_number_on_record,
+    call_operator_intent,
+    call_destination_authorized,
+    call_local_hours,
+    call_script_from_template,
     no_notice_without_filing,
     no_refunds,
 ]

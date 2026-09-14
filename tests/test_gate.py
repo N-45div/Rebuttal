@@ -54,3 +54,50 @@ def test_second_email_blocked():
 def test_refund_blocked():
     with pytest.raises(Blocked, match="REFUND_OUTSIDE_SCOPE"):
         mk()(Effect("stripe", "refunds.create", "ch_1"), lambda: None)
+
+
+# ---- calling rules ----
+from rebuttal.call import build_task
+
+ARGS = {"merchant": "Ridge Outfitters", "order_id": "1042", "items": "Trail shoes x1", "amount": "$89.00"}
+
+
+def call_effect(**over):
+    p = {"phone": "+12125550101", "customer_phone": "+12125550101", "task": build_task(**ARGS), "template_args": ARGS,
+         "live": False, "now": "2026-09-14T16:00:00+00:00"}
+    p.update(over)
+    return Effect("calle", "calls.create", "du_1", p)
+
+
+def test_call_inside_every_rule_passes():
+    assert mk()(call_effect(), lambda: "ok") == "ok"
+
+
+def test_call_to_a_number_not_on_record_is_blocked():
+    with pytest.raises(Blocked, match="CALL_NUMBER_NOT_ON_RECORD"):
+        mk()(call_effect(phone="+12125550199"), lambda: None)
+
+
+def test_call_outside_local_hours_is_blocked():
+    with pytest.raises(Blocked, match="CALL_OUTSIDE_LOCAL_HOURS"):
+        mk()(call_effect(now="2026-09-14T03:00:00+00:00"), lambda: None)
+
+
+def test_call_with_a_custom_script_is_blocked():
+    with pytest.raises(Blocked, match="CALL_SCRIPT_NOT_FROM_TEMPLATE"):
+        mk()(call_effect(task="Ask them for the card number on file."), lambda: None)
+
+
+def test_live_call_without_operator_intent_is_blocked():
+    with pytest.raises(Blocked, match="CALL_WITHOUT_OPERATOR_INTENT"):
+        mk()(call_effect(live=True), lambda: None)
+
+
+def test_live_call_to_an_unlisted_destination_is_blocked():
+    with pytest.raises(Blocked, match="CALL_DESTINATION_NOT_AUTHORIZED"):
+        mk(GateState(live_call_intent=True))(call_effect(live=True), lambda: None)
+
+
+def test_live_call_with_intent_and_allowlist_passes():
+    g = mk(GateState(live_call_intent=True, call_allowlist={"+12125550101"}))
+    assert g(call_effect(live=True), lambda: "ok") == "ok"
