@@ -119,7 +119,7 @@ def call_customer(ctx: RunContextWrapper[Ctx]) -> str:
             for t in rec.turns), thread)
     say("*Checks*\n" + "\n".join(("\u2705 " if x.passed else "\u274c ") + f"{x.name}: {x.detail}"
                                     + (f" \u201c{x.quote}\u201d" if x.quote else "") for x in g.checks), thread)
-    c.trace.span("gather", "calle.grounding", result=rec.status, call_id=rec.call_id, reported=g.reported, accepted=g.accepted,
+    c.trace.span("gather", "calle.grounding", result=rec.status, call_id=rec.call_id, to=call.mask(phone), reported=g.reported, accepted=g.accepted,
                  usable=g.usable, denied=g.denied, confidence=rec.confidence, duration=rec.duration_seconds, turns=len(rec.turns),
                  transcript=rec.turns, checks=[asdict(x) for x in g.checks])
     used = g.usable and not g.denied and "yes" in (g.accepted.get("received"), g.accepted.get("recognises_charge"))

@@ -99,7 +99,7 @@ def from_trace(path: Path, title: str) -> dict[str, Any]:
     rec = call.CallRecord(call_id=gs.get("call_id", ""), status=gs.get("result", ""), task_completed=None,
                           confidence=gs.get("confidence"), result=gs.get("reported", {}), summary="", evidence=[],
                           turns=gs.get("transcript", []))
-    out = from_record(rec, g, title=title, source="live run trace",
+    out = from_record(rec, g, title=title, source="live run trace", phone=gs.get("to", ""),
                       dispute={"id": t.get("dispute_id"), "reason": dec.get("reason_code")},
                       outcome={"verdict": (dec.get("verdict") or "").upper(), "status": m.group(1) if m else None,
                                "recovered": f"${rec_amt.group(1)}" if rec_amt else None, "file": doc.get("file"),
