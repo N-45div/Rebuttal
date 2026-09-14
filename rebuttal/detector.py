@@ -17,7 +17,7 @@ class Finding:
 
 
 ALLOWED_EFFECTS = {
-    "stripe.disputes.update", "gmail.messages.send", "photon.messages.send", "calle.calls.create", "sheets.values.append", "slack.chat.postMessage",
+    "stripe.disputes.update", "gmail.messages.send", "photon.messages.send", "calle.calls.create", "stripe.files.create", "sheets.values.append", "slack.chat.postMessage",
 }
 
 
@@ -65,6 +65,16 @@ def detect(trace_spans: list[dict[str, Any]], packet: dict[str, Any], bundle: di
 
     if stage != "post":
         return r
+
+    # CALL-E's structured answer versus the customer's words, and the disclosure the script requires.
+    for s in spans:
+        if s.get("name") != "calle.grounding":
+            continue
+        for chk in s.get("checks", []):
+            if chk.get("name", "").endswith("_grounded") and not chk.get("passed") and "reported yes" in chk.get("detail", ""):
+                r.findings.append(Finding("Hallucination", f"CALL-E {chk['detail']}; the answer was not used"))
+            if chk.get("name") == "disclosure_spoken" and not chk.get("passed") and s.get("result") == "completed":
+                r.findings.append(Finding("Instruction Violation", "the call never said it was automated; its answers were not used"))
 
     # Communication Failure: the human saw a report that omits the verdict or the money.
     report = next((s for s in spans if s.get("kind") == "report"), None)
