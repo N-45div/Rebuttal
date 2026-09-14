@@ -1,0 +1,157 @@
+{
+ "title": "Twin run: the fixed script, grounded and filed",
+ "source": "live run trace",
+ "dispute": {
+  "id": "du_1",
+  "reason": "unrecognized"
+ },
+ "call": {
+  "id": "call_twin001",
+  "status": "completed",
+  "confidence": 0.93,
+  "duration_seconds": 20.0,
+  "started_at": null,
+  "completed_at": null,
+  "to": "",
+  "script": "confirm-receipt-v2",
+  "idempotency_key": "rebuttal-confirm-receipt-v2-du_1"
+ },
+ "events": [
+  {
+   "message": "run_call started.",
+   "type": "call.in_progress",
+   "offset": 5.21
+  },
+  {
+   "message": "calling task created.",
+   "type": "call.in_progress",
+   "offset": 5.21
+  },
+  {
+   "message": "Call is ringing.",
+   "type": "call.in_progress",
+   "offset": 5.21
+  },
+  {
+   "message": "Call answered.",
+   "type": "call.in_progress",
+   "offset": 5.21
+  },
+  {
+   "message": "Call completed.",
+   "type": "call.completed",
+   "offset": 5.21
+  }
+ ],
+ "turns": [
+  {
+   "offset_seconds": 0,
+   "speaker": "caller",
+   "text": "Hello, this is an automated assistant calling on behalf of Ridge Outfitters about your order 1042. This call may be recorded."
+  },
+  {
+   "offset_seconds": 7,
+   "speaker": "customer",
+   "text": "Okay."
+  },
+  {
+   "offset_seconds": 8,
+   "speaker": "caller",
+   "text": "Did you receive the order?"
+  },
+  {
+   "offset_seconds": 11,
+   "speaker": "customer",
+   "text": "Yes, I got them last week."
+  },
+  {
+   "offset_seconds": 13,
+   "speaker": "caller",
+   "text": "Do you recognise the charge for that order?"
+  },
+  {
+   "offset_seconds": 16,
+   "speaker": "customer",
+   "text": "Yes, that charge is mine."
+  },
+  {
+   "offset_seconds": 18,
+   "speaker": "caller",
+   "text": "Thank you. Goodbye."
+  }
+ ],
+ "reported": {
+  "received": "yes",
+  "recognises_charge": "yes",
+  "purchaser": "cardholder",
+  "declined_to_talk": "no"
+ },
+ "accepted": {
+  "received": "yes",
+  "recognises_charge": "yes",
+  "purchaser": "cardholder"
+ },
+ "usable": true,
+ "denied": false,
+ "checks": [
+  {
+   "name": "call_completed",
+   "passed": true,
+   "detail": "status completed, task_completed True",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "confidence",
+   "passed": true,
+   "detail": "completion confidence 0.93 (minimum 0.8)",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "disclosure_spoken",
+   "passed": true,
+   "detail": "the caller said it was automated and named the merchant",
+   "quote": "Hello, this is an automated assistant calling on behalf of Ridge Outfitters about your order 1042. This call may be recorded.",
+   "offset": 0
+  },
+  {
+   "name": "no_payment_data_requested",
+   "passed": true,
+   "detail": "the caller never asked for payment data",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "customer_willing",
+   "passed": true,
+   "detail": "the customer answered",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "received_grounded",
+   "passed": true,
+   "detail": "CALL-E reported yes; the customer said yes",
+   "quote": "Yes, I got them last week.",
+   "offset": 11
+  },
+  {
+   "name": "recognises_charge_grounded",
+   "passed": true,
+   "detail": "CALL-E reported yes; the customer said yes",
+   "quote": "Yes, that charge is mine.",
+   "offset": 16
+  }
+ ],
+ "decision": "used as evidence",
+ "outcome": {
+  "verdict": "SUBMIT",
+  "status": "won",
+  "recovered": "$104.00",
+  "file": "file_twin001",
+  "approved": true,
+  "report": "SUBMIT -> won | $89.00 at stake, $104.00 recovered, $15.00 fee returned | 0 forbidden effects blocked | run 7aea09dbaa | coordinator: gpt-6-astra",
+  "run_id": "7aea09dbaa"
+ }
+}

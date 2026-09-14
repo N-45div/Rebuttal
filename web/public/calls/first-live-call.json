@@ -1,0 +1,277 @@
+{
+ "title": "First live call: answered, but never said it was automated",
+ "source": "saved CALL-E payload",
+ "dispute": {
+  "id": "du_1UFHD0AZHnJgtqr2CY0v5sK3",
+  "reason": "fraudulent"
+ },
+ "call": {
+  "id": "call_LCHx7jpvcZgoI5Tl8IiYIQ",
+  "status": "completed",
+  "confidence": 0.95,
+  "duration_seconds": 40.0,
+  "started_at": "2026-09-13T20:08:24Z",
+  "completed_at": "2026-09-13T20:09:04Z",
+  "to": "+91******5425",
+  "script": "confirm-receipt-v2",
+  "idempotency_key": "rebuttal-confirm-receipt-v2-du_1UFHD0AZHnJgtqr2CY0v5sK3"
+ },
+ "events": [
+  {
+   "message": "run_call started.",
+   "type": "call.started",
+   "offset": -31.0
+  },
+  {
+   "message": "botlab create bot.",
+   "type": "call.in_progress",
+   "offset": -28.6
+  },
+  {
+   "message": "calling resolve robot id.",
+   "type": "call.in_progress",
+   "offset": -9.4
+  },
+  {
+   "message": "calling create task.",
+   "type": "call.in_progress",
+   "offset": -6.9
+  },
+  {
+   "message": "calling task created.",
+   "type": "call.completed",
+   "offset": -5.5
+  },
+  {
+   "message": "calling task status=pending",
+   "type": "call.updated",
+   "offset": -5.0
+  },
+  {
+   "message": "calling task status=calling",
+   "type": "call.updated",
+   "offset": 2.6
+  },
+  {
+   "message": "Call is ringing.",
+   "type": "call.updated",
+   "offset": 4.4
+  },
+  {
+   "message": "Call connected.",
+   "type": "call.updated",
+   "offset": 12.8
+  },
+  {
+   "message": "Bot is speaking: Hi.",
+   "type": "call.updated",
+   "offset": 13.2
+  },
+  {
+   "message": "Callee said: Hi.",
+   "type": "call.updated",
+   "offset": 16.6
+  },
+  {
+   "message": "Bot is speaking: Hi,",
+   "type": "call.updated",
+   "offset": 17.6
+  },
+  {
+   "message": "Bot is speaking: I'm calling for Ridge Outfitters about order one, zero, four,",
+   "type": "call.updated",
+   "offset": 18.3
+  },
+  {
+   "message": "Bot is speaking: two for one pair of Trail shoes, and I'd like to confirm a couple of details.",
+   "type": "call.updated",
+   "offset": 21.9
+  },
+  {
+   "message": "Bot is speaking: Did you receive the order?",
+   "type": "call.updated",
+   "offset": 25.9
+  },
+  {
+   "message": "Callee said: which i received",
+   "type": "call.updated",
+   "offset": 29.8
+  },
+  {
+   "message": "Callee said: HI received",
+   "type": "call.updated",
+   "offset": 30.1
+  },
+  {
+   "message": "Callee said: which i received",
+   "type": "call.updated",
+   "offset": 30.5
+  },
+  {
+   "message": "Callee said: HI received order.",
+   "type": "call.updated",
+   "offset": 30.7
+  },
+  {
+   "message": "Bot is speaking: Great, thanks for confirming.",
+   "type": "call.updated",
+   "offset": 31.0
+  },
+  {
+   "message": "Bot is speaking: Do you recognize the charge for the order?",
+   "type": "call.updated",
+   "offset": 32.9
+  },
+  {
+   "message": "Callee said: yes",
+   "type": "call.updated",
+   "offset": 37.0
+  },
+  {
+   "message": "Callee said: Yes.",
+   "type": "call.updated",
+   "offset": 37.6
+  },
+  {
+   "message": "Bot is speaking: Thank you, bye.",
+   "type": "call.updated",
+   "offset": 38.1
+  },
+  {
+   "message": "Call ended; syncing final Calling result.",
+   "type": "call.updated",
+   "offset": 40.9
+  },
+  {
+   "message": "Call ended from realtime events.",
+   "type": "call.completed",
+   "offset": 46.8
+  },
+  {
+   "message": "calling task status=finished",
+   "type": "call.updated",
+   "offset": 77.3
+  }
+ ],
+ "turns": [
+  {
+   "offset_seconds": 0,
+   "speaker": "caller",
+   "text": "Hi."
+  },
+  {
+   "offset_seconds": 3,
+   "speaker": "customer",
+   "text": "Hi."
+  },
+  {
+   "offset_seconds": 4,
+   "speaker": "caller",
+   "text": "Hi,"
+  },
+  {
+   "offset_seconds": 5,
+   "speaker": "caller",
+   "text": "I'm calling for Ridge Outfitters about order one, zero, four,"
+  },
+  {
+   "offset_seconds": 8,
+   "speaker": "caller",
+   "text": "two for one pair of Trail shoes, and I'd like to confirm a couple of details."
+  },
+  {
+   "offset_seconds": 12,
+   "speaker": "caller",
+   "text": "Did you receive the order?"
+  },
+  {
+   "offset_seconds": 17,
+   "speaker": "customer",
+   "text": "HI received order."
+  },
+  {
+   "offset_seconds": 17,
+   "speaker": "caller",
+   "text": "Great, thanks for confirming."
+  },
+  {
+   "offset_seconds": 19,
+   "speaker": "caller",
+   "text": "Do you recognize the charge for the order?"
+  },
+  {
+   "offset_seconds": 24,
+   "speaker": "customer",
+   "text": "Yes."
+  },
+  {
+   "offset_seconds": 24,
+   "speaker": "caller",
+   "text": "Thank you, bye."
+  }
+ ],
+ "reported": {
+  "received": "yes",
+  "recognises_charge": "yes"
+ },
+ "accepted": {
+  "received": "unknown",
+  "recognises_charge": "unknown",
+  "purchaser": "unknown"
+ },
+ "usable": false,
+ "denied": false,
+ "checks": [
+  {
+   "name": "call_completed",
+   "passed": true,
+   "detail": "status completed, task_completed True",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "confidence",
+   "passed": true,
+   "detail": "completion confidence 0.95 (minimum 0.8)",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "disclosure_spoken",
+   "passed": false,
+   "detail": "the opening never said it was an automated call on behalf of the merchant",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "no_payment_data_requested",
+   "passed": true,
+   "detail": "the caller never asked for payment data",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "customer_willing",
+   "passed": true,
+   "detail": "the customer answered",
+   "quote": null,
+   "offset": null
+  },
+  {
+   "name": "received_grounded",
+   "passed": true,
+   "detail": "CALL-E reported yes; the customer said yes",
+   "quote": "HI received order.",
+   "offset": 17
+  },
+  {
+   "name": "recognises_charge_grounded",
+   "passed": true,
+   "detail": "CALL-E reported yes; the customer said yes",
+   "quote": "Yes.",
+   "offset": 24
+  }
+ ],
+ "decision": "not used",
+ "outcome": null
+}
