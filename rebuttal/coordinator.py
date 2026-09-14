@@ -135,6 +135,7 @@ def call_customer(ctx: RunContextWrapper[Ctx]) -> str:
             f"Asked whether they recognise the {args['amount']} charge, the customer said \"{q.get('recognises_charge_grounded', '')}\".")})
         if g.accepted.get("received") == "yes":
             c.have.add(Evidence.CUSTOMER_COMMUNICATION)
+            c.have.add(Evidence.CUSTOMER_CONFIRMED_RECEIPT)
     return json.dumps({"call_id": rec.call_id, "status": rec.status, "used_as_evidence": used, "accepted": g.accepted,
                        "denied": g.denied, "checks": {x.name: x.passed for x in g.checks}})
 

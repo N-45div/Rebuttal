@@ -27,7 +27,8 @@ class Evidence(str, Enum):
     DUPLICATE_CHARGE_DISTINCT = "duplicate_charge_distinct"  # proof the two charges were separate orders
     DIGITAL_ACCESS_LOG = "digital_access_log"
     CE3_PRIOR_TRANSACTIONS = "ce3_prior_transactions"  # two undisputed charges, same card, 120-365 days old
-    CE3_ELEMENTS_MATCH = "ce3_elements_match"          # two of four elements match, one being IP or device
+    CE3_ELEMENTS_MATCH = "ce3_elements_match"
+    CUSTOMER_CONFIRMED_RECEIPT = "customer_confirmed_receipt"  # the customer said so on a disclosed, grounded call          # two of four elements match, one being IP or device
 
 
 # Physical goods need proof of delivery; digital goods need proof of access.
@@ -105,6 +106,10 @@ def decide(reason_code: str, kind: str, have: set[Evidence]) -> Decision:
     req = POLICY.get((reason_code, kind))
     if req is None:
         return Decision(Verdict.HOLD, [], f"no policy for {reason_code}/{kind}; human decides")
+
+    # A disclosed call in which the customer's own words confirm receipt stands in for a delivery scan.
+    if Evidence.CUSTOMER_CONFIRMED_RECEIPT in have and reason_code in ("product_not_received", "unrecognized"):
+        have = set(have) | {Evidence.TRACKING_DELIVERED}
 
     hit = req.concede_if & have
     if hit:
